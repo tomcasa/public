@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">URL Fetcher</string>
+    <string name="action_settings">Config</string>
+    <string name="hello_world">Salut!</string>
+    <string name="Default_Action">Action par default</string> 
+    <string name="rDownDir">Télecharge et Ouvre (Direct)</string>
+    <string name="rDownMngOpen">Télecharge et Ouvre (Via le Manager)</string>
+    <string name="rDownMng">Télecharge (Via Manager)</string>
+    <string name="Download_Method">Methode de telechargement</string>
+    <string name="aOpen">Ouvrir</string>
+    <string name="aEdit">Editer</string>
+    <string name="aSend">Envoyer</string>
+    
+</resources>
