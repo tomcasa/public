@@ -21,7 +21,7 @@ import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.AsyncTask;
-import android.os.Bundle;
+import android.os.Bundle; 
 import android.os.Environment;
 import android.util.Log;
 import android.view.Menu;
@@ -160,6 +160,8 @@ public class MainActivity extends Activity {
 		super.finish();
 	}
  
+	
+	
 
 	@Override
 	protected void onPause() {

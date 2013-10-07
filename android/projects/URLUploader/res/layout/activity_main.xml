@@ -12,7 +12,7 @@
 
     <TextView
         android:id="@+id/TextView01"
-        android:layout_width="213dp"
+        android:layout_width="250dp"
         android:layout_height="wrap_content"
         android:text="@string/Download_Method" />
 
@@ -31,19 +31,19 @@
             android:id="@+id/rDownMngOpen"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:checked="true"
             android:text="@string/rDownMngOpen" />
 
         <RadioButton
             android:id="@+id/rDownDir"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:checked="true"
             android:text="@string/rDownDir" />
     </RadioGroup>
 
     <TextView
         android:id="@+id/textView1"
-        android:layout_width="108dp"
+        android:layout_width="254dp"
         android:layout_height="wrap_content"
         android:text="@string/Default_Action" />
 
@@ -55,6 +55,7 @@
 
         <RadioButton
             android:id="@+id/aSend"
+            android:checked="true"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/aSend" />
@@ -64,7 +65,6 @@
             android:id="@+id/aEdit"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:checked="true"
             android:text="@string/aEdit" />
         
         
@@ -72,18 +72,16 @@
             android:id="@+id/aOpen"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:checked="true"
             android:text="@string/aOpen" />
 
     </RadioGroup>
-    
     
     <Button
         android:id="@+id/button1"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:onClick="close"
-        android:text="Close" />
+        android:text="@string/Close" />
 
     <TextView
         android:id="@+id/textView2"

@@ -12,5 +12,6 @@
     <string name="aOpen">Ouvrir</string>
     <string name="aEdit">Editer</string>
     <string name="aSend">Envoyer</string>
+    <string name="Close">Fermer</string>
     
 </resources>

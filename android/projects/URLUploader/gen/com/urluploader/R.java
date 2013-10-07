@@ -48,6 +48,7 @@ public final class R {
         public static final int main=0x7f070000;
     }
     public static final class string {
+        public static final int Close=0x7f05000b;
         public static final int Default_Action=0x7f050003;
         public static final int Download_Method=0x7f050007;
         public static final int aEdit=0x7f050009;
