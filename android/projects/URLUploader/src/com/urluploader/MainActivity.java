@@ -6,8 +6,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URLConnection;
 
-import org.apache.http.client.utils.URIUtils;
-
 import android.app.Activity;
 import android.app.DownloadManager;
 import android.app.DownloadManager.Request;
@@ -21,7 +19,7 @@ import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.AsyncTask;
-import android.os.Bundle; 
+import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
 import android.view.Menu;
