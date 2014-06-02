@@ -14,6 +14,8 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
@@ -21,6 +23,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
+import android.location.GpsStatus;
+import android.location.GpsStatus.Listener;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -29,13 +33,20 @@ import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Looper;
 import android.provider.Settings.Secure;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.Menu;
+import android.view.View;
+import android.view.View.OnClickListener;
+import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.CompoundButton.OnCheckedChangeListener;
 import android.widget.EditText;
+import android.widget.ScrollView;
 import android.widget.Switch;
 import android.widget.TextView;
 
@@ -51,21 +62,27 @@ public class Monitor extends Activity {
 
 	static SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd,HH:mm:ss");
 	private SharedPreferences pref;
-	private Switch switch1;
-	private Switch switch2;
+	private Switch switchRecordOn;
+	private Switch switchSaveDrive;
 	private static LocationListener locationListener;
 	private static LocationManager locationManager;
-	private CheckBox checkBox1;
-	private CheckBox checkBox2;
+	private CheckBox cbGPSAuto;
+	private CheckBox cbDetails;
 	private static Date lastSave;
 	private static int countEvents;
 	private TextView textView1;
-	private TextView editText1;
+	private TextView tSaveInterSec;
 	private static Date lastData;
 	private static LinkedList<Evt> listE = new LinkedList<Monitor.Evt>();
-	private EditText editText2;
-	private static Date startDate; 
-
+	private EditText tDevName;
+	private EditText tMaxInterval;
+	private Button saveNow;
+	private ScrollView scroll;
+	private static long gpsRequested = 0;
+	private static Date startDate;
+	private static ScheduledThreadPoolExecutor pool = new ScheduledThreadPoolExecutor(1); 
+	private static int gpsStatus = -1;
+	
 	public String getPhoneName() {
 		BluetoothAdapter myDevice = BluetoothAdapter.getDefaultAdapter();
 
@@ -82,39 +99,119 @@ public class Monitor extends Activity {
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_monitor);
-		
+		 
 		locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
+		locationManager.addGpsStatusListener(new Listener() {
+
+			@Override
+			public void onGpsStatusChanged(int event) {
+				gpsStatus = event;
+			}
+		});
 
 		pref = getPreferences(MODE_PRIVATE);
  
-		switch2 = ((Switch) findViewById(R.id.switch2));
-		switch2.setChecked(pref.getBoolean(R.id.switch2 + "", false));
+		switchSaveDrive = ((Switch) findViewById(R.id.switchSaveDrive));
+		switchSaveDrive.setChecked(pref.getBoolean(R.id.switchSaveDrive + "", false));
 
-		switch1 = ((Switch) findViewById(R.id.switch1));
-		switch1.setChecked(pref.getBoolean(R.id.switch1 + "", false));
+		switchRecordOn = ((Switch) findViewById(R.id.switchRecordOn));
+		switchRecordOn.setChecked(pref.getBoolean(R.id.switchRecordOn + "", false));
 
-		checkBox1 = ((CheckBox) findViewById(R.id.checkBox1));
-		checkBox1.setChecked(pref.getBoolean(R.id.checkBox1 + "", false));
+		cbGPSAuto = ((CheckBox) findViewById(R.id.cbGPSAuto));
+		cbGPSAuto.setChecked(pref.getBoolean(R.id.cbGPSAuto + "", false));
 		
-		checkBox2 = ((CheckBox) findViewById(R.id.CheckBox01));
-		checkBox2.setChecked(pref.getBoolean(R.id.CheckBox01 + "", false));
+		scroll = ((ScrollView) findViewById(R.id.scrollView1));
+		
+		cbDetails = ((CheckBox) findViewById(R.id.cbDetails));
+		cbDetails.setChecked(pref.getBoolean(R.id.cbDetails + "", false));
 
 		textView1 = ((TextView) findViewById(R.id.textView1));
 		
-		editText1 = ((EditText) findViewById(R.id.editText1));
-		editText1.setText(""+pref.getInt(R.id.editText1+ "", 0));
+		tSaveInterSec = ((EditText) findViewById(R.id.tSaveInterSec));
+		tSaveInterSec.setText(""+pref.getInt(R.id.tSaveInterSec+ "", 0));
 		
-		editText2 = ((EditText) findViewById(R.id.editText2));
-		editText2.setText(""+pref.getString(R.id.editText2+ "", getPhoneName()));
+		tMaxInterval = ((EditText) findViewById(R.id.tMaxInterval));
+		tMaxInterval.setText(""+pref.getInt(R.id.tMaxInterval+ "", 0));
 		
-		switch1.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+		tDevName = ((EditText) findViewById(R.id.tDevName));
+		tDevName.setText(""+pref.getString(R.id.tDevName+ "", getPhoneName()));
+		
+		switchRecordOn.setOnCheckedChangeListener(new OnCheckedChangeListener() {
 			public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {				
 				recordLoc();
 			}
 		});
+		
+		tMaxInterval.addTextChangedListener(new TextWatcher() {
+			
+			@Override
+			public void onTextChanged(CharSequence s, int start, int before, int count) {				
+			}
+			
+			@Override
+			public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+			}
+			
+			@Override
+			public void afterTextChanged(Editable s) {
+				if (s.length() > 0){
+					checkMaxInterval();
+				}
+			}
+		});
+	
+		saveNow = ((Button) findViewById(R.id.saveNow));
+		saveNow.setOnClickListener(new OnClickListener() {
+			
+			@Override
+			public void onClick(View v) {
+				trySave();
+				
+			}
+		});
  
 		 recordLoc();		  
+		 
+		 checkMaxInterval();
 			 
+		 
+	} 
+
+	private void checkMaxInterval() {
+		if (!switchRecordOn.isChecked())
+			return;
+
+		long max = Long.parseLong("" + tMaxInterval.getText());
+		log("checkMaxInterval for " + max + " pending " + listE.size());
+
+		long now = new Date().getTime();
+		if ((now - lastData.getTime()) > (max * 1000)) {
+			if (GpsStatus.GPS_EVENT_SATELLITE_STATUS == gpsStatus && gpsRequested < now) {
+				log("request GPS location");
+				gpsRequested = now + 1000*60*5; //5 min wait  
+				locationManager.requestSingleUpdate(LocationManager.GPS_PROVIDER, locationListener, Looper.getMainLooper());
+			}else{
+				log("request NET location");
+				locationManager.requestSingleUpdate(LocationManager.NETWORK_PROVIDER, locationListener, Looper.getMainLooper());
+			}
+		}
+
+		if (max > 5) {
+//			log("schedule checkMaxInterval");
+			pool.schedule(new Runnable() {
+
+				@Override
+				public void run() {
+					saveNow.post(new Runnable() {						
+						@Override
+						public void run() {
+							checkMaxInterval();							
+						}
+					});
+				}
+			}, (max * 1000 + 500), TimeUnit.MILLISECONDS);
+		}
+		
 	}
 
 	@Override
@@ -124,12 +221,13 @@ public class Monitor extends Activity {
 
 		Editor editor = getPreferences(MODE_PRIVATE).edit();
 		
-		editor.putBoolean("" + R.id.CheckBox01, checkBox2.isChecked());
-		editor.putBoolean("" + R.id.checkBox1, checkBox1.isChecked());
-		editor.putBoolean("" + R.id.switch1, switch1.isChecked());
-		editor.putBoolean("" + R.id.switch2, switch2.isChecked());
-		editor.putInt("" + R.id.editText1, Integer.parseInt(""+editText1.getText()));
-		editor.putString("" + R.id.editText2, ""+editText2.getText());
+		editor.putBoolean("" + R.id.cbDetails, cbDetails.isChecked());
+		editor.putBoolean("" + R.id.cbGPSAuto, cbGPSAuto.isChecked());
+		editor.putBoolean("" + R.id.switchRecordOn, switchRecordOn.isChecked());
+		editor.putBoolean("" + R.id.switchSaveDrive, switchSaveDrive.isChecked());
+		editor.putInt("" + R.id.tSaveInterSec, Integer.parseInt(""+tSaveInterSec.getText()));
+		editor.putInt("" + R.id.tMaxInterval, Integer.parseInt(""+tMaxInterval.getText()));
+		editor.putString("" + R.id.tDevName, ""+tDevName.getText());
 
 		editor.commit();
 		super.onPause();
@@ -139,7 +237,11 @@ public class Monitor extends Activity {
 
 		log(format.format(new Date()) + " " + location.getProvider()+ "\n");
 
-		if ( switch2 .isChecked()){
+		if (LocationManager.GPS_PROVIDER.equals(location.getProvider())){
+			gpsRequested = 0;
+		}
+		
+		if ( switchSaveDrive .isChecked()){
 			
 			Evt evt = new Evt();
 			evt.loc = location;			
@@ -177,17 +279,17 @@ public class Monitor extends Activity {
 			log("doing because " + maxI + " items \n");
 			trySave();
 
-		} else if (diff > Long.parseLong("" + editText1.getText()) * 1000) {
+		} else if (diff > Long.parseLong("" + tSaveInterSec.getText()) * 1000) {
 
 			log("doing because " + (lastData.getTime() - lastSave.getTime()) + ">"
-					+ (Integer.parseInt("" + editText1.getText()) * 1000) + "\n");
+					+ (Integer.parseInt("" + tSaveInterSec.getText()) * 1000) + "\n");
 
 			trySave();
 
 		} else {
 
 			log("waiting " + (lastData.getTime() - lastSave.getTime()) + ">"
-					+ (Integer.parseInt("" + editText1.getText()) * 1000) + "\n");
+					+ (Integer.parseInt("" + tSaveInterSec.getText()) * 1000) + "\n");
 
 		}
 		
@@ -195,7 +297,7 @@ public class Monitor extends Activity {
 
 	private void trySave() {
 		
-		if (!isOnline()){
+		if (!isOnline() || listE.size() == 0){
 			return;
 		}
 		
@@ -284,7 +386,7 @@ public class Monitor extends Activity {
 		
 		log(ut);
 
-		if (checkBox1.isChecked()) {
+		if (cbGPSAuto.isChecked()) {
 			Intent browserIntent = new Intent(Intent.ACTION_VIEW).setData(Uri.parse(url.toExternalForm()));
 			startActivity(browserIntent);
 
@@ -299,32 +401,17 @@ public class Monitor extends Activity {
 				PrintWriter pw = new PrintWriter(sw);
 				sw.append(e.getMessage()+"\n");
 				e.printStackTrace(pw);
-				
-				textView1.post(new Runnable() {
-					
-					@Override
-					public void run() {
-						textView1.append(sw.toString() + "\n");
-					}
-				});
-
+				log(sw.toString() );
 			}
 
 		}
 
-		textView1.post(new Runnable() {
-			
-			@Override
-			public void run() {
-				textView1.append("done\n");
-			}
-		});
-		
+		log("done");
 	}
 
 	private String getDeviceName() {
 		
-		return URLEncoder.encode(editText2.getText().toString());		
+		return URLEncoder.encode(tDevName.getText().toString());		
 	}
 
 	public boolean isOnline() {
@@ -355,14 +442,7 @@ public class Monitor extends Activity {
 		System.out.println("Response Code ... " + status);
 
 
-		textView1.post(new Runnable() {
-			
-			@Override
-			public void run() {
-				textView1.append(status + "\n");
-			}
-		});
-
+		log(""+status);
 		
 		if (redirect) {
 	 
@@ -382,15 +462,7 @@ public class Monitor extends Activity {
 			System.out.println("Redirect to URL : " + newUrl);
 			
 
-			textView1.post(new Runnable() {
-				
-				@Override
-				public void run() {
-					textView1.append("redirected\n");
-				}
-			});
-
-
+			log("redirected");
 	 
 		}
 	 
@@ -422,7 +494,7 @@ public class Monitor extends Activity {
 		log("start record " +format.format(startDate));
 		
 		
-		if (switch1.isChecked()){
+		if (switchRecordOn.isChecked()){
 			
 			if (locationListener != null) {
 				log("continue recording ..." + "\n");
@@ -486,13 +558,23 @@ public class Monitor extends Activity {
 
 	}
 
-	private void log(String string) {
-		if (!string.endsWith("\n")){
-			string += "\n";
-		}
-		Log.i("user", string);
-		textView1.append(string);
-		appendLog(format.format(new Date()) + " " + string);
+	private void log(final String string) {
+		
+		textView1.post(new Runnable() {
+			
+			@Override
+			public void run() {
+				if (string.endsWith("\n")){			
+					textView1.append(string);	
+					appendLog(format.format(new Date()) + " " + string);
+				}else{					
+					textView1.append(string+ "\n");						
+					appendLog(format.format(new Date()) + " " + string+ "\n");
+				}
+				Log.i("user", string);		
+				scroll.fullScroll(View.FOCUS_DOWN);									
+			}
+		});
 		
 	}
 	private void log(String string, Exception e) {
