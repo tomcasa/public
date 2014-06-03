@@ -78,6 +78,7 @@ public class Monitor extends Activity {
 	private EditText tMaxInterval;
 	private Button saveNow;
 	private ScrollView scroll;
+	private Button clearLog;
 	private static long gpsRequested = 0;
 	private static Date startDate;
 	private static ScheduledThreadPoolExecutor pool = new ScheduledThreadPoolExecutor(1); 
@@ -159,7 +160,7 @@ public class Monitor extends Activity {
 				}
 			}
 		});
-	
+
 		saveNow = ((Button) findViewById(R.id.saveNow));
 		saveNow.setOnClickListener(new OnClickListener() {
 			
@@ -167,6 +168,15 @@ public class Monitor extends Activity {
 			public void onClick(View v) {
 				trySave();
 				
+			}
+		});
+
+		clearLog = ((Button) findViewById(R.id.clearLog));
+		clearLog.setOnClickListener(new OnClickListener() {
+			
+			@Override
+			public void onClick(View v) {
+				textView1.setText("");				
 			}
 		});
  
@@ -232,22 +242,21 @@ public class Monitor extends Activity {
 		editor.commit();
 		super.onPause();
 	}
-	  
+
 	private void makeUseOfNewLocation(final Location location) throws IOException {
 
-		log(format.format(new Date()) + " " + location.getProvider()+ "\n");
-
-		if (LocationManager.GPS_PROVIDER.equals(location.getProvider())){
+		if (LocationManager.GPS_PROVIDER.equals(location.getProvider())) {
 			gpsRequested = 0;
 		}
-		
-		if ( switchSaveDrive .isChecked()){
-			
+
+		if (switchSaveDrive.isChecked()) {
+
 			Evt evt = new Evt();
-			evt.loc = location;			
-			listE.add(evt);			
+			evt.loc = location;
+			listE.add(evt);
 			lastData = new Date();
-			
+			log(format.format(new Date()) + " " + location.getProvider() + " " + listE.size() + "\n");
+
 			checkSave();
 
 		} else {
@@ -257,7 +266,6 @@ public class Monitor extends Activity {
 
 	private void checkSave() {
 
-		
 		int maxI = 20;
 		
 //		log("debug " + lastData + " " + lastSave + "\n");
@@ -288,8 +296,8 @@ public class Monitor extends Activity {
 
 		} else {
 
-			log("waiting " + (lastData.getTime() - lastSave.getTime()) + ">"
-					+ (Integer.parseInt("" + tSaveInterSec.getText()) * 1000) + "\n");
+			log("waiting " + (lastData.getTime() - lastSave.getTime()) / 1000 + ">"
+					+ (Integer.parseInt("" + tSaveInterSec.getText())) + "\n");
 
 		}
 		
@@ -301,12 +309,13 @@ public class Monitor extends Activity {
 			return;
 		}
 		
+		int end = listE.size() < 30 ? listE.size() : 30; 
 		final LinkedList<Evt> listE2 = new LinkedList<Monitor.Evt>();
-		listE2.addAll(listE);
-		listE.clear();	
+		listE2.addAll(listE.subList(0, end));
+		listE.removeAll(listE2);
 
 		log("save to drive "+listE2.size()+" items\n");
-		Thread thread = new Thread(new Runnable(){
+		pool.schedule(new Runnable(){
 		    @Override
 		    public void run() {
 		        try {
@@ -324,8 +333,11 @@ public class Monitor extends Activity {
 					});
 		        }
 		    }
-		});
-		thread.start();
+		},0,TimeUnit.SECONDS);		
+		
+		if(listE.size()>0){
+			trySave();
+		}
 
 	}
 
@@ -386,25 +398,12 @@ public class Monitor extends Activity {
 		
 		log(ut);
 
-		if (cbGPSAuto.isChecked()) {
-			Intent browserIntent = new Intent(Intent.ACTION_VIEW).setData(Uri.parse(url.toExternalForm()));
-			startActivity(browserIntent);
+		
+//			Intent browserIntent = new Intent(Intent.ACTION_VIEW).setData(Uri.parse(url.toExternalForm()));
+//			startActivity(browserIntent);
 
-		} else {
-
-			
-			try {
-				download(url);
-			} catch (Exception e) {
-
-				final StringWriter sw = new StringWriter();
-				PrintWriter pw = new PrintWriter(sw);
-				sw.append(e.getMessage()+"\n");
-				e.printStackTrace(pw);
-				log(sw.toString() );
-			}
-
-		}
+			 
+		download(url);
 
 		log("done");
 	}
@@ -575,13 +574,16 @@ public class Monitor extends Activity {
 				scroll.fullScroll(View.FOCUS_DOWN);									
 			}
 		});
-		
+
 	}
+
 	private void log(String string, Exception e) {
-		Log.i("user", string);
-		((TextView) findViewById(R.id.textView1)).append(string);
-		appendLog(string);
-		
+
+		final StringWriter sw = new StringWriter();
+		PrintWriter pw = new PrintWriter(sw);
+		sw.append(e.getMessage() + "\n");
+		e.printStackTrace(pw);
+		log(sw.toString());
 	}
 
 	@Override
