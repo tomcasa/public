@@ -8,6 +8,34 @@
     android:paddingTop="@dimen/activity_vertical_margin"
     tools:context=".Monitor" >
 
+    <Switch
+        android:id="@+id/switchRecordOn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentTop="true"
+        android:text="Recording" />
+
+    <Switch
+        android:id="@+id/switchSaveDrive"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentRight="true"
+        android:layout_below="@+id/switchRecordOn"
+        android:text="Save to Drive" />
+    
+    
+    <CheckBox
+        android:id="@+id/cbGPSAuto"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentRight="true"
+        android:layout_below="@+id/switchSaveDrive"
+        android:text="Turn GPS On if speed is detected" />
+    
     <CheckBox
         android:id="@+id/cbDetails"
         android:layout_width="wrap_content"
@@ -17,6 +45,97 @@
         android:layout_below="@+id/cbGPSAuto"
         android:text="Show activity details" />
 
+
+    
+    <Switch
+        android:id="@+id/requestLoc"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" 
+        android:layout_below="@+id/cbDetails"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentRight="true"
+        android:text="Request Location" />
+    
+    <EditText
+        android:id="@+id/tSaveInterSec"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentRight="true"
+        android:layout_below="@+id/requestLoc"
+        android:ems="5"
+        android:inputType="number"
+        android:maxWidth="10dp"
+        android:text="180" >
+
+    </EditText>
+
+    <TextView
+        android:id="@+id/textView2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignBaseline="@+id/tSaveInterSec"
+        android:layout_alignBottom="@+id/tSaveInterSec"
+        android:layout_alignParentLeft="true"
+        android:layout_toLeftOf="@+id/tSaveInterSec"
+        android:text="Save Interval (sec) :"
+        android:textAppearance="?android:attr/textAppearanceButton" />
+
+    <EditText
+        android:id="@+id/tDevName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentRight="true"
+        android:layout_below="@+id/tSaveInterSec"
+        android:ems="7"
+        android:inputType="textPersonName" />
+
+    <TextView
+        android:id="@+id/textView3"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignBaseline="@+id/tDevName"
+        android:layout_alignBottom="@+id/tDevName"
+        android:layout_alignParentLeft="true"
+        android:text="Device Name : "
+        android:textAppearance="?android:attr/textAppearanceButton" />
+
+    <TextView
+        android:id="@+id/TextView01"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignBaseline="@+id/tMaxInterval"
+        android:layout_alignBottom="@+id/tMaxInterval"
+        android:layout_alignParentLeft="true"
+        android:text="Max Interval (sec) :"
+        android:textAppearance="?android:attr/textAppearanceButton" />
+
+    <EditText
+        android:id="@+id/tMaxInterval"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentRight="true"
+        android:layout_below="@+id/tDevName"
+        android:ems="5"
+        android:inputType="number"
+        android:maxWidth="10dp"
+        android:text="60" />
+
+    <Button
+        android:id="@+id/saveNow"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentRight="true"
+        android:layout_below="@+id/tMaxInterval"
+        android:text="Save Now" />
+
+    <Button
+        android:id="@+id/scrollLog"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignRight="@+id/textView2"
+        android:layout_below="@+id/tMaxInterval"
+        android:text="Scroll" />
+ 
     <ScrollView
         android:id="@+id/scrollView1"
         android:layout_width="wrap_content"
@@ -36,7 +155,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text=""
-                android:textAppearance="?android:attr/textAppearanceMedium" >
+                android:textAppearance="?android:attr/textAppearanceSmall" >
                 <requestFocus />
                 </TextView>
 
@@ -44,101 +163,6 @@
         </LinearLayout>
     </ScrollView>
 
-    <Switch
-        android:id="@+id/switchRecordOn"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentRight="true"
-        android:layout_alignParentTop="true"
-        android:text="Recording" />
-
-    <Switch
-        android:id="@+id/switchSaveDrive"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentRight="true"
-        android:layout_below="@+id/switchRecordOn"
-        android:text="Save to Drive" />
-
-    <CheckBox
-        android:id="@+id/cbGPSAuto"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentRight="true"
-        android:layout_below="@+id/switchSaveDrive"
-        android:text="Turn GPS On if speed is detected" />
-
-    <EditText
-        android:id="@+id/tSaveInterSec"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentRight="true"
-        android:layout_below="@+id/cbDetails"
-        android:ems="5"
-        android:inputType="number"
-        android:maxWidth="10dp" >
-
-    </EditText>
-
-    <TextView
-        android:id="@+id/textView2"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignBaseline="@+id/tSaveInterSec"
-        android:layout_alignBottom="@+id/tSaveInterSec"
-        android:layout_alignParentLeft="true"
-        android:layout_toLeftOf="@+id/tSaveInterSec"
-        android:text="Save Interval (sec) :"
-        android:textAppearance="?android:attr/textAppearanceMedium" />
-
-    <EditText
-        android:id="@+id/tDevName"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentRight="true"
-        android:layout_below="@+id/tSaveInterSec"
-        android:ems="7"
-        android:inputType="textPersonName" />
-
-    <TextView
-        android:id="@+id/textView3"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignBaseline="@+id/tDevName"
-        android:layout_alignBottom="@+id/tDevName"
-        android:layout_alignParentLeft="true"
-        android:text="Device Name : "
-        android:textAppearance="?android:attr/textAppearanceMedium" />
-
-    <TextView
-        android:id="@+id/TextView01"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignBaseline="@+id/tMaxInterval"
-        android:layout_alignBottom="@+id/tMaxInterval"
-        android:layout_alignParentLeft="true"
-        android:text="Max Interval (sec) :"
-        android:textAppearance="?android:attr/textAppearanceMedium" />
-
-    <EditText
-        android:id="@+id/tMaxInterval"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentRight="true"
-        android:layout_below="@+id/tDevName"
-        android:ems="5"
-        android:inputType="number"
-        android:maxWidth="10dp" />
-
-    <Button
-        android:id="@+id/saveNow"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentRight="true"
-        android:layout_below="@+id/tMaxInterval"
-        android:text="Save Now" />
-
+    
+    
 </RelativeLayout>
