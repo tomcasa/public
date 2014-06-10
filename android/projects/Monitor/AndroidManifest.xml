@@ -13,12 +13,13 @@
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission." />
+    <uses-permission android:name="android.permission.PHONE_STATE" />
+    
     
     <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="true" />
   
     	<uses-sdk
-        android:minSdkVersion="14"
+        android:minSdkVersion="17"
         android:targetSdkVersion="18" />
 
     <application

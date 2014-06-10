@@ -1,0 +1,184 @@
+<html>
+<head>
+    <link rel='shortcut icon' href='icon2.ico'>
+    <title>GPS Log Viewer</title>
+    <style>
+      html, body, #map-canvas {
+        height: 100%;
+        margin: 0px;
+        padding: 0px
+      } 
+      #menu {
+        position: absolute;
+        width: 250px;
+        height: 25px;
+        left: 50%;
+        padding: 5px;
+        border: 1px solid #CCCCCC;
+        background-color: #FFFFFF;
+        text-align: center;
+        border-radius: 3px;
+        z-index: 10;
+      }
+    </style> 
+    
+    <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.10.4/themes/smoothness/jquery-ui.css" />
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.10.4/jquery-ui.min.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&amp;sensor=false"></script>
+    <!--<script src="https://script.google.com/macros/s/AKfycbxDi3WzcXUXDawOu8vNsesXsv4HDunfJBUKVHxPDvB5F8lYvpA3/exec" type="text/javascript"></script-->
+    <script>
+     
+
+function load() {
+  var date = $( "#datepicker" ).val(); 
+  //alert(date);
+  json=null;
+  
+  var fileref=document.createElement('script');
+  fileref.setAttribute("type","text/javascript");
+  fileref.setAttribute("src", "https://script.google.com/macros/s/AKfycbwLdpoLSi-UbyY1I-7z24YRnt9JMSTmq20IlB5rtiDtpQqdEow/exec?div=Note%20Tom&date="+date);
+
+  document.getElementsByTagName("head")[0].appendChild(fileref);
+  //alert(json.date);
+
+}     
+
+function callback() {
+    
+     initialize();
+}
+
+function initialize() {
+  
+  
+  var points =[]; 
+  
+  for (i=0;i<5;i++){
+//      points[i] = new google.maps.LatLng(37.771313, -112.214897+i);
+  }
+
+//  alert(points);
+
+
+var i=0;
+var j=0;
+var x0=0;
+var y0=0;
+
+for(var x=0; x<json.data.length; x++) {     
+     if(json.data[x][2]>0){
+        points[i] = new google.maps.LatLng(json.data[x][3], json.data[x][2]);
+        i++;
+        if (i==1){
+          //alert(json.data[x][2] + " " + json.data[x][3])
+          x0=json.data[x][3];
+          y0=json.data[x][2];
+        }         
+     } 
+}  
+
+//alert("count "+i);
+           
+              
+  var flightPath = new google.maps.Polyline({
+    path: points,
+    geodesic: true,
+    strokeColor: '#aa8888',
+    strokeOpacity: 1.0,
+    strokeWeight: 1
+  });
+
+
+  var myLatlng = new google.maps.LatLng(x0,y0);
+
+  var sBlue = {
+    path: 'M 0,0 1,0',
+    strokeColor: '#000099',
+    strokeWeight: 5
+  };
+  var sGreen = {
+    path: 'M 0,0 1,0',
+    strokeColor: '#009900',
+    strokeWeight: 5
+  };
+  var sRed = {
+    path: 'M 0,0 1,0',
+    strokeColor: '#990000',
+    strokeWeight: 5
+  };
+  
+  var mapOptions = {
+    zoom: 13,
+	center: myLatlng,
+  }
+  var map = new google.maps.Map(document.getElementById('map-canvas'), mapOptions);
+  
+  flightPath.setMap(map);
+
+  
+for(var x=0; x<json.data.length; x++) {     
+     if(json.data[x][2]>0){ 
+		var loc = new google.maps.LatLng(json.data[x][3], json.data[x][2]);			
+        
+        if (json.data[x][1]=="fused"){
+            var ic = sBlue;		
+        }else if (json.data[x][1]=="gps"){
+            var ic = sGreen;		
+        }else{
+			var ic = sRed;
+		}
+    	var marker = new google.maps.Marker({
+			position: loc,
+			icon: ic,
+			map: map,						
+			title: json.data[x][0] + " " + json.data[x][1]
+		});
+
+     } 
+  }  
+  
+  
+}
+
+// google.maps.event.addDomListener(window, 'load', initialize);
+
+ $(function() {
+     
+     //alert(new Date().toJSON().substring(0,10));
+     //alert($.datepicker.formatDate('yy-mm-dd', new Date()));
+     
+    $( "#datepicker" ).datepicker();
+    $( "#datepicker" ).datepicker( "option", "dateFormat", "yy-mm-dd");
+    $( "#datepicker" ).val(new Date().toJSON().substring(0,10));
+    $( "#datepicker" ).width(90);
+    
+    $( "#menu" ).draggable();
+    $( "#menu" ).position({
+        at: "top",
+        my: "top",
+        of: $(window)
+    });
+	
+	
+	load();
+
+  });
+
+
+    </script>
+  </head>
+  <body>
+   
+    <div id="menu">
+        <input type="text" id="datepicker" >
+        <select id="format">
+            <option value="Note%20Tom">Note Tom</option>
+        </select>
+        <input type="button" value="load" onclick="load();">
+        <!--a id="aload" href="#" onclick="load();">load</a--> 
+    </div>
+    <div id="map-canvas"></div>
+    
+  </body>
+</html>

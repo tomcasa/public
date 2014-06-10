@@ -14,15 +14,14 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
@@ -41,6 +40,13 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Looper;
 import android.provider.Settings.Secure;
+import android.telephony.CellInfo;
+import android.telephony.CellInfoGsm;
+import android.telephony.CellLocation;
+import android.telephony.NeighboringCellInfo;
+import android.telephony.PhoneStateListener;
+import android.telephony.TelephonyManager;
+import android.telephony.gsm.GsmCellLocation;
 import android.util.FloatMath;
 import android.util.Log;
 import android.view.View;
@@ -110,6 +116,9 @@ public class PerroMon extends Activity {
 	private float mAccelCurrent;
 	private LocationListener locReqGPSListener;
 	private LocationListener locReqNETListener;
+	private TelephonyManager telephonyManager;
+	private PhoneStateListener phoneListener;
+	protected List<CellInfo> mCellInfo;
 	private static long gpsAsked;
 	private static long gpsRequested = 0;
 	private static Date startDate = new Date();
@@ -294,11 +303,43 @@ public class PerroMon extends Activity {
 				public void onProviderDisabled(String provider) {
 				}
 			};
-		}
-		
-		
-		recordLoc();		  
-		check();		
+			}
+
+			telephonyManager = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
+			phoneListener = new PhoneStateListener() {
+
+				@Override
+				public void onCellInfoChanged(java.util.List<android.telephony.CellInfo> cellInfo) {
+					mCellInfo = cellInfo;
+					if (mCellInfo != null) {
+						for (Iterator<CellInfo> iterator = cellInfo.iterator(); iterator.hasNext();) {
+
+							CellInfoGsm cellInfoGsm = (CellInfoGsm) iterator.next();
+
+							if (cbDetails.isChecked()) {
+								log("cell ID " + cellInfoGsm.getCellIdentity());
+							}
+						}
+					}
+					super.onCellInfoChanged(cellInfo);
+				};
+
+				@Override
+				public void onCellLocationChanged(CellLocation location) {
+
+					GsmCellLocation gsmCellLocation = (GsmCellLocation) location;
+					
+					log("cellp " + gsmCellLocation.getCid() + "," + gsmCellLocation.getLac() + ","
+							+ gsmCellLocation.getPsc());
+					super.onCellLocationChanged(location);
+				}
+
+			};
+			telephonyManager.listen(phoneListener, PhoneStateListener.LISTEN_CELL_INFO);
+			telephonyManager.listen(phoneListener, PhoneStateListener.LISTEN_CELL_LOCATION);
+
+			recordLoc();
+			check();	
 		detectMov();
 		
 		if (BootReceiver.token){		 
@@ -443,6 +484,7 @@ public class PerroMon extends Activity {
 
 			locationManager.removeUpdates(locReqNETListener);
 			locationManager.removeUpdates(locReqGPSListener);
+			
 			return;
 		}
 
@@ -520,6 +562,19 @@ public class PerroMon extends Activity {
 
 			if (lastData == location.getTime()){
 				return;
+			}
+			
+			List<NeighboringCellInfo> neighboringCellInfos = telephonyManager.getNeighboringCellInfo();
+			log("cell info " + neighboringCellInfos.size());
+			for(NeighboringCellInfo neighboringCellInfo : neighboringCellInfos)
+			{
+			    neighboringCellInfo.getCid();
+			    neighboringCellInfo.getLac();
+			    neighboringCellInfo.getPsc();
+			    neighboringCellInfo.getNetworkType();
+			    neighboringCellInfo.getRssi();
+
+			    log("cell info " + neighboringCellInfo.toString());
 			}
 			
 			Evt evt = new Evt();
@@ -888,8 +943,16 @@ public class PerroMon extends Activity {
 			text = d + " " + text + "\n";
 		}
 		
-		File root = Environment.getExternalStorageDirectory();
+		File root = Environment.getExternalStorageDirectory();		
 		File logFile = new File(root, "PeroMon.txt");
+		if (logFile.length()>5*1000*1000){
+			File logFile2 = new File(root, "PeroMon.2.txt");
+			if (logFile2.exists()){
+				logFile2.delete();
+			}
+			logFile.renameTo(logFile2);
+		}
+			
 		if (!logFile.exists()) {
 			try {
 				logFile.createNewFile();
