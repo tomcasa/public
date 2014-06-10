@@ -14,7 +14,6 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.Locale;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -57,6 +56,7 @@ import android.widget.TextView;
 
 import com.monitor.R;
 
+@SuppressLint({ "SimpleDateFormat", "DefaultLocale" })
 public class PerroMon extends Activity {
 
 	public static class Evt {
@@ -203,11 +203,18 @@ public class PerroMon extends Activity {
 		
 		tDevName = ((EditText) findViewById(R.id.tDevName));
 		tDevName.setText(""+conf.devName);
-		
+
 		switchRecordOn.setOnCheckedChangeListener(new OnCheckedChangeListener() {
 			public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {				
 				recordLoc();
 				check();
+				detectMov();
+			}
+		});
+
+		cbGPSAuto.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+			public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {				
+				detectMov();
 			}
 		});
 		
@@ -248,87 +255,6 @@ public class PerroMon extends Activity {
 			}
 		}
 
-		recordLoc();		  
-		check();		
-		detectMov();
-		
-		if (BootReceiver.token){		 
-			Intent startMain = new Intent(Intent.ACTION_MAIN);
-			startMain.addCategory(Intent.CATEGORY_HOME);
-			startMain.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-			startActivity(startMain);
-						
-		}
-		
-		}catch (Exception e){
-			log(e.getLocalizedMessage(),e);
-		}
-		
-		
-		
-	} 
-
-	@SuppressLint("FloatMath")
-	private void detectMov() {
-
-		sensorMan = (SensorManager) getSystemService(SENSOR_SERVICE);
-		accelerometer = sensorMan.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-		mAccel = 0.00f;
-		mAccelCurrent = SensorManager.GRAVITY_EARTH;
-		mAccelLast = SensorManager.GRAVITY_EARTH;
-		
-		sensorEventListener = new SensorEventListener() {
-			
-			private float[] mGravity;
-			
-
-			@Override
-			public void onSensorChanged(SensorEvent event) {
-				if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER){
-			        mGravity = event.values.clone();
-			        // Shake detection
-			        float x = mGravity[0];
-			        float y = mGravity[1];
-			        float z = mGravity[2];
-			        mAccelLast = mAccelCurrent;
-			        mAccelCurrent = FloatMath.sqrt(x*x + y*y + z*z);
-			        float delta = mAccelCurrent - mAccelLast;
-			        mAccel = mAccel * 0.9f + delta;
-			            // Make this higher or lower according to how much
-			            // motion you want to detect
-			        if(mAccel > 3){			        	
-			        	if (cbGPSAuto.isChecked()){
-							gpsAsked = new Date().getTime() + 1000 * 60 * 5;
-			        	}			        	
-			        }
-			    }
-			}
-			
-			@Override
-			public void onAccuracyChanged(Sensor sensor, int accuracy) { 
-				
-			}
-		};
-		sensorMan.registerListener(sensorEventListener, accelerometer, SensorManager.SENSOR_DELAY_UI);		
-	}
-
-
-
-	private void loadConf() {
-		
-		pref = getPreferences(MODE_PRIVATE);
-		conf.save = pref.getBoolean(R.id.switchSaveDrive + "", false);
-		conf.record = pref.getBoolean(R.id.switchRecordOn + "", false);
-		conf.reqLoc = pref.getBoolean(R.id.requestLoc + "", false);
-		conf.gpsAuto = pref.getBoolean(R.id.cbGPSAuto + "", false);
-		conf.details = pref.getBoolean(R.id.cbDetails + "", false);
-		conf.secSave = pref.getInt(R.id.tSaveInterSec+ "", 0);
-		conf.secReqInt = pref.getInt(R.id.tMaxInterval+ "", 0);
-		conf.devName= pref.getString(R.id.tDevName+ "", getPhoneName());
-		
-	}
-
-	private void check() {
 		
 
 		if (locReqNETListener == null) {
@@ -354,9 +280,7 @@ public class PerroMon extends Activity {
 		if (locReqGPSListener == null) {
 			locReqGPSListener = new LocationListener() {
 				public void onLocationChanged(Location location) {
- 
-					gpsRequested = 0;
-					
+  				
 					try {
 						makeUseOfNewLocation(location);
 					} catch (IOException e) {
@@ -372,7 +296,141 @@ public class PerroMon extends Activity {
 			};
 		}
 		
-		int gpsTimeout = 4;
+		
+		recordLoc();		  
+		check();		
+		detectMov();
+		
+		if (BootReceiver.token){		 
+			Intent startMain = new Intent(Intent.ACTION_MAIN);
+			startMain.addCategory(Intent.CATEGORY_HOME);
+			startMain.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+			startActivity(startMain);
+						
+		}
+		
+		}catch (Exception e){
+			log(e.getLocalizedMessage(),e);
+		}
+		
+		
+	} 
+
+	@SuppressLint("FloatMath")
+	private void detectMov() {
+
+		if (cbGPSAuto.isChecked() && switchRecordOn.isChecked()){
+			
+		
+		sensorMan = (SensorManager) getSystemService(SENSOR_SERVICE);
+		accelerometer = sensorMan.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+		mAccel = 0.00f;
+		mAccelCurrent = SensorManager.GRAVITY_EARTH;
+		mAccelLast = SensorManager.GRAVITY_EARTH;
+		
+		sensorEventListener = new SensorEventListener() {
+			
+			private float[] mGravity;
+			
+
+			@Override
+			public void onSensorChanged(SensorEvent event) {
+				if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER){
+			        mGravity = event.values.clone();
+			        // Shake detection
+			        float x = mGravity[0];
+			        float y = mGravity[1];
+			        float z = mGravity[2];
+			        mAccelLast = mAccelCurrent;
+			        mAccelCurrent = FloatMath.sqrt(x*x + y*y + z*z);
+			        float delta = mAccelCurrent - mAccelLast;
+			        mAccel = mAccel * 0.9f + delta;
+			            // Make this higher or lower according to how much
+			            // motion you want to detect
+
+					movDetected();
+			    }
+			}
+			
+			@Override
+			public void onAccuracyChanged(Sensor sensor, int accuracy) { 
+				
+			}
+		};
+		sensorMan.registerListener(sensorEventListener, accelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+
+		}else{
+			
+			if(sensorEventListener != null){
+				sensorMan.unregisterListener(sensorEventListener);
+			}
+		}
+	}
+
+
+
+	final static SimpleDateFormat hm = new SimpleDateFormat("hh:mm");
+	String hmCurr;
+	private int hmMovSum;
+
+	protected void movDetected() {
+
+		int limMov = 300;
+		Date nowd = new Date();
+		if (hm.format(nowd).equals(hmCurr)) {
+			if (cbGPSAuto.isChecked()) {
+				if (mAccel > 1){
+					hmMovSum += mAccel;
+					if(cbDetails.isChecked()){
+						log("mov sum " + hmMovSum + " + " + (int) mAccel + " >? " + limMov);
+					}
+				}
+			}
+		} else {
+			hmMovSum = 0;
+			hmCurr = hm.format(nowd);
+		}
+
+		
+		if (hmMovSum > limMov ) {
+			gpsAsked = new Date().getTime() + 1000 * 60 * 3;
+		}
+		
+		
+		if (gpsAsked < nowd.getTime() && gpsRequested >0) {
+				log("cancel GPS requests");
+				locationManager.removeUpdates(locReqGPSListener);
+				gpsRequested = 0;
+		} 
+		
+		if (gpsAsked > nowd.getTime() && gpsRequested == 0) {
+			log("request GPS location (mov detected "+hmMovSum+")");
+			gpsRequested = nowd.getTime() ;
+			locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 20,
+					locReqGPSListener, Looper.getMainLooper());
+		}
+	} 
+	
+
+	
+	private void loadConf() {
+		
+		pref = getPreferences(MODE_PRIVATE);
+		conf.save = pref.getBoolean(R.id.switchSaveDrive + "", false);
+		conf.record = pref.getBoolean(R.id.switchRecordOn + "", false);
+		conf.reqLoc = pref.getBoolean(R.id.requestLoc + "", false);
+		conf.gpsAuto = pref.getBoolean(R.id.cbGPSAuto + "", false);
+		conf.details = pref.getBoolean(R.id.cbDetails + "", false);
+		conf.secSave = pref.getInt(R.id.tSaveInterSec+ "", 0);
+		conf.secReqInt = pref.getInt(R.id.tMaxInterval+ "", 0);
+		conf.devName= pref.getString(R.id.tDevName+ "", getPhoneName());
+		
+	}
+
+	private void check() {
+		
+
+		int netTimeout = 4;
 		long now = new Date().getTime();
 		
 		if (!switchRecordOn.isChecked() || !switchRequestLoc.isChecked()){
@@ -396,43 +454,18 @@ public class PerroMon extends Activity {
 			log("check each " + max + "s (p" + listE.size()+")");
 		}
 		
-		if ((now - lastData) > (max * 1000)) {
-
-			{
-				if (gpsRequested != 0 ) { 
-					if ( gpsRequested < now) {
-						log("cancel GPS requests");
-						locationManager.removeUpdates(locReqGPSListener);
-						gpsRequested = 0;
-					}else{
-						log("waiting GPS location");
-					}
-				} else if (gpsRequested < now
-						&& (GpsStatus.GPS_EVENT_FIRST_FIX == gpsStatus
-								|| GpsStatus.GPS_EVENT_SATELLITE_STATUS == gpsStatus || gpsAsked > now)) {
-					if(gpsAsked > now)
-						log("request GPS location (mov detected)");
-					else
-						log("request GPS location (reuse signal)");
-					gpsRequested = now + 1000 * 60 * gpsTimeout;  
-					locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 20,
-							locReqGPSListener, Looper.getMainLooper());
-				} 
-			} 
-			
-			{
-				if (netRequested != 0 && netRequested < now) {
-					log("cancel NET requests");
-					locationManager.removeUpdates(locReqNETListener);
-					netRequested = 0;
-				} else if (netRequested < now){
-					log("request NET location");
-					netRequested = now + 1000 * 60 * gpsTimeout;  
-					locationManager.requestSingleUpdate(LocationManager.NETWORK_PROVIDER, locReqNETListener,
-							Looper.getMainLooper());
-				} else{
-					log("waiting NET location");
-				}
+		if ((now - lastData) > ((max) * 1000)) {
+			if (netRequested != 0 && netRequested < now) {
+				log("cancel NET requests");
+				locationManager.removeUpdates(locReqNETListener);
+				netRequested = 0;
+			} else if (netRequested < now){
+				log("request NET location");
+				netRequested = now + 1000 * 60 * netTimeout;  
+				locationManager.requestSingleUpdate(LocationManager.NETWORK_PROVIDER, locReqNETListener,
+						Looper.getMainLooper());
+			} else{
+				log("waiting NET location");
 			}
 		}
 		
@@ -493,7 +526,7 @@ public class PerroMon extends Activity {
 			evt.loc = location;
 			listE.add(evt);
 			lastData = location.getTime();
-			log("get " + location.getProvider().toUpperCase(Locale.getDefault()) + " loc " + format.format(new Date()).substring(11) + " (p" + listE.size() + ")");
+			log("get " + location.getProvider().toUpperCase() + " loc " + format.format(new Date()).substring(11) + " (p" + listE.size() + ")");
 
 			checkSave();
 		} else {
@@ -550,25 +583,27 @@ public class PerroMon extends Activity {
 		listE2.addAll(listE.subList(0, end));
 		listE.removeAll(listE2);
 
-		log("saving to drive "+listE2.size()+" items\n");		
-		pool.schedule(new Runnable(){
-		    @Override
-		    public void run() {
-		        try {
+		log("saving to drive " + listE2.size() + " items\n");
+		pool.schedule(new Runnable() {
+			@Override
+			public void run() {
+				try {
 					saveLoc(listE2);
 					countEvents += listE2.size();
 					lastSave = lastData;
-		        } catch (final Exception e) {
-//							log("error "+e.getMessage()+"\n", e);
-					log("not saved "+e.getMessage());
+				} catch (final Exception e) {
+					// log("error "+e.getMessage()+"\n", e);
+					String m = e.getMessage();
+					log("not saved " + (m.length() > 60 ? "" : m));
 					listE.addAll(0, listE2);
-		        }
-		    }
-		},0,TimeUnit.SECONDS);		
-		
-		if(listE.size()>0){
-			trySave();
-		}
+				}
+
+				if (listE.size() > 0) {
+					trySave();
+				}
+
+			}
+		}, 0, TimeUnit.SECONDS);
 
 	}
 
@@ -585,7 +620,7 @@ public class PerroMon extends Activity {
 		StringBuilder sb = new StringBuilder();
 
 		sb.append("[");
-		for (Iterator iterator = listE2.iterator(); iterator.hasNext();) {
+		for (Iterator<Evt> iterator = listE2.iterator(); iterator.hasNext();) {
 			Evt evt = (Evt) iterator.next();
 			if (evt.loc==null){
 
@@ -640,6 +675,7 @@ public class PerroMon extends Activity {
 		
 	}
 
+	@SuppressWarnings("deprecation")
 	private String getDeviceName() {
 		
 		return URLEncoder.encode(tDevName.getText().toString());		
@@ -874,30 +910,30 @@ public class PerroMon extends Activity {
  
 	@Override
 	public void onBackPressed() {
-		
-	    new AlertDialog.Builder(this)
-	        .setIcon(android.R.drawable.ic_dialog_alert)
-	        .setTitle("Closing Activity")
-	        .setMessage("Are you sure you want to close this activity?")
-	        .setPositiveButton("Yes", new DialogInterface.OnClickListener(){
-	        @Override
-	        public void onClick(DialogInterface dialog, int which) {
-	        	
-	        	locationManager.removeGpsStatusListener(gpsStatList);
-	        	if (locReqGPSListener!=null)
-	        		locationManager.removeUpdates(locReqGPSListener);
-	        	if (locReqNETListener!=null)
-	        		locationManager.removeUpdates(locReqNETListener);
-	        	if (locationListener!=null)
-	        		locationManager.removeUpdates(locationListener);        	
-	        	
-	            finish();   
-	            
-	        }
-
-	    })
-	    .setNegativeButton("No", null)
-	    .show();
+//		
+//	    new AlertDialog.Builder(this)
+//	        .setIcon(android.R.drawable.ic_dialog_alert)
+//	        .setTitle("Closing Activity")
+//	        .setMessage("Are you sure you want to close this activity?")
+//	        .setPositiveButton("Yes", new DialogInterface.OnClickListener(){
+//	        @Override
+//	        public void onClick(DialogInterface dialog, int which) {
+//	        	
+//	        	locationManager.removeGpsStatusListener(gpsStatList);
+//	        	if (locReqGPSListener!=null)
+//	        		locationManager.removeUpdates(locReqGPSListener);
+//	        	if (locReqNETListener!=null)
+//	        		locationManager.removeUpdates(locReqNETListener);
+//	        	if (locationListener!=null)
+//	        		locationManager.removeUpdates(locationListener);        	
+//	        	
+//	            finish();   
+//	            
+//	        }
+//
+//	    })
+//	    .setNegativeButton("No", null)
+//	    .show();
 	}
 	
 	
