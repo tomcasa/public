@@ -15,7 +15,7 @@
         android:layout_alignParentLeft="true"
         android:layout_alignParentRight="true"
         android:layout_alignParentTop="true"
-        android:text="Recording" />
+        android:text="Recording Location" />
 
     <Switch
         android:id="@+id/switchSaveDrive"
@@ -24,8 +24,7 @@
         android:layout_alignParentLeft="true"
         android:layout_alignParentRight="true"
         android:layout_below="@+id/switchRecordOn"
-        android:text="Save to Drive" />
-    
+        android:text="Save to GDrive" />
     
     <CheckBox
         android:id="@+id/cbGPSAuto"
@@ -34,7 +33,7 @@
         android:layout_alignParentLeft="true"
         android:layout_alignParentRight="true"
         android:layout_below="@+id/switchSaveDrive"
-        android:text="Turn GPS On if speed is detected" />
+        android:text="Turn GPS On if movement is detected" />
     
     <CheckBox
         android:id="@+id/cbDetails"
@@ -45,16 +44,14 @@
         android:layout_below="@+id/cbGPSAuto"
         android:text="Show activity details" />
 
-
-    
     <Switch
         android:id="@+id/requestLoc"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content" 
-        android:layout_below="@+id/cbDetails"
+        android:layout_height="wrap_content"
         android:layout_alignParentLeft="true"
         android:layout_alignParentRight="true"
-        android:text="Request Location" />
+        android:layout_below="@+id/cbDetails"
+        android:text="Request network Location" />
     
     <EditText
         android:id="@+id/tSaveInterSec"

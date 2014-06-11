@@ -119,6 +119,7 @@ public class PerroMon extends Activity {
 	private TelephonyManager telephonyManager;
 	private PhoneStateListener phoneListener;
 	protected List<CellInfo> mCellInfo;
+	protected int lastCellId;
 	private static long gpsAsked;
 	private static long gpsRequested = 0;
 	private static Date startDate = new Date();
@@ -329,8 +330,12 @@ public class PerroMon extends Activity {
 
 					GsmCellLocation gsmCellLocation = (GsmCellLocation) location;
 					
-					log("cellp " + gsmCellLocation.getCid() + "," + gsmCellLocation.getLac() + ","
-							+ gsmCellLocation.getPsc());
+					lastCellId = gsmCellLocation.getCid();
+					if (cbDetails.isChecked()) {
+						log("cellp " + gsmCellLocation.getCid() + "," + gsmCellLocation.getLac() + ","
+								+ gsmCellLocation.getPsc());
+					}
+						
 					super.onCellLocationChanged(location);
 				}
 
@@ -354,7 +359,7 @@ public class PerroMon extends Activity {
 			log(e.getLocalizedMessage(),e);
 		}
 		
-		
+
 	} 
 
 	@SuppressLint("FloatMath")
@@ -404,6 +409,8 @@ public class PerroMon extends Activity {
 			
 			if(sensorEventListener != null){
 				sensorMan.unregisterListener(sensorEventListener);
+				gpsAsked = 0;
+				movDetected();
 			}
 		}
 	}
@@ -416,7 +423,7 @@ public class PerroMon extends Activity {
 
 	protected void movDetected() {
 
-		int limMov = 300;
+		int limMov = 450;
 		Date nowd = new Date();
 		if (hm.format(nowd).equals(hmCurr)) {
 			if (cbGPSAuto.isChecked()) {
@@ -433,7 +440,7 @@ public class PerroMon extends Activity {
 		}
 
 		
-		if (hmMovSum > limMov ) {
+		if (hmMovSum >= limMov ) {
 			gpsAsked = new Date().getTime() + 1000 * 60 * 3;
 		}
 		
@@ -564,18 +571,18 @@ public class PerroMon extends Activity {
 				return;
 			}
 			
-			List<NeighboringCellInfo> neighboringCellInfos = telephonyManager.getNeighboringCellInfo();
-			log("cell info " + neighboringCellInfos.size());
-			for(NeighboringCellInfo neighboringCellInfo : neighboringCellInfos)
-			{
-			    neighboringCellInfo.getCid();
-			    neighboringCellInfo.getLac();
-			    neighboringCellInfo.getPsc();
-			    neighboringCellInfo.getNetworkType();
-			    neighboringCellInfo.getRssi();
-
-			    log("cell info " + neighboringCellInfo.toString());
-			}
+//			List<NeighboringCellInfo> neighboringCellInfos = telephonyManager.getNeighboringCellInfo();
+//			log("cell info " + neighboringCellInfos.size());
+//			for(NeighboringCellInfo neighboringCellInfo : neighboringCellInfos)
+//			{
+//			    neighboringCellInfo.getCid();
+//			    neighboringCellInfo.getLac();
+//			    neighboringCellInfo.getPsc();
+//			    neighboringCellInfo.getNetworkType();
+//			    neighboringCellInfo.getRssi();
+//
+//			    log("cell info " + neighboringCellInfo.toString());
+//			}
 			
 			Evt evt = new Evt();
 			evt.loc = location;
@@ -614,8 +621,8 @@ public class PerroMon extends Activity {
 
 		} else if (diff > st * 1000) {
 
-			log("saving because " + (lastData - lastSave) + ">"
-					+ (st * 1000) + "\n");
+			log("saving because " + (int)((lastData - lastSave)/1000) + ">"
+					+ (st) + "\n");
 
 			trySave();
 
@@ -697,9 +704,9 @@ public class PerroMon extends Activity {
 				+"\",\"e\":\""+evt.loc.getProvider()
 				+"\",\"x\":\""+evt.loc.getLongitude()
 				+"\",\"y\":\""+evt.loc.getLatitude()
-				+"\",\"a\":\""+evt.loc.getAltitude()
-				+"\",\"s\":\""+evt.loc.getSpeed()
-				+"\",\"ac\":\""+evt.loc.getAccuracy()
+				+"\",\"a\":\""+String.format("%.2f", evt.loc.getAltitude())
+				+"\",\"s\":\""+String.format("%.1f", evt.loc.getSpeed())
+				+"\",\"ac\":\""+String.format("%.1f", evt.loc.getAccuracy())
 				+"\"}");
 			}
 			
@@ -876,9 +883,11 @@ public class PerroMon extends Activity {
 			@Override
 			public void run() {
 				String d = format.format(new Date());
-				CharSequence s = textView1.getText();
+				String s = textView1.getText().toString();
 				if (s.length()>5000){
-					textView1.setText(s.subSequence(s.length()-1000, s.length()));
+					s = s.substring(s.length()-3000);
+					s = s.substring(s.indexOf("\n"));
+					textView1.setText(s);
 				}
 				
 				if (string.endsWith("\n")){			
