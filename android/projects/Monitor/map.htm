@@ -6,38 +6,130 @@
       html, body, #map-canvas {
         height: 100%;
         margin: 0px;
-        padding: 0px
+        padding: 0px;
+		font-size: 12px;
       } 
       #menu {
         position: absolute;
-        width: 250px;
+        width: 450px;
         height: 25px;
         left: 50%;
         padding: 5px;
-        border: 1px solid #CCCCCC;
-        background-color: #FFFFFF;
         text-align: center;
-        border-radius: 3px;
         z-index: 10;
       }
+      #menuVis {
+        border-radius: 3px;
+        border: 1px solid #CCCCCC;
+        background-color: #FFFFFF;
+      }
+		  
+	  .hide { display: none;}
+	  .show { display: block;}
     </style> 
     
-    <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.10.4/themes/smoothness/jquery-ui.css" />
+    
+    <!--
+	hosts list http://blog.jqueryui.com/2010/09/jquery-ui-1-8-5/
+	link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.10.4/themes/smoothness/jquery-ui.css" /
+	-->
+    <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.5/themes/sunny/jquery-ui.css" />
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.10.4/jquery-ui.min.js"></script>
     <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&amp;sensor=false"></script>
     <!--<script src="https://script.google.com/macros/s/AKfycbxDi3WzcXUXDawOu8vNsesXsv4HDunfJBUKVHxPDvB5F8lYvpA3/exec" type="text/javascript"></script-->
-    <script>
-     
+	
+	
+  <script src="https://apis.google.com/js/plusone.js" type="text/javascript"></script>
+  <script src="https://apis.google.com/js/client.js?onload=onClientLoad" type="text/javascript"></script>
+  <script type="text/javascript">
+  
+  function loginFinishedCallback(authResult) {
+    if (authResult) {
+      if (authResult['error'] == undefined){
+		console.log(authResult.access_token);
+        gapi.auth.setToken(authResult); 
+        $('#signin-button').hide('slow');
+        $('#access_token').val(authResult.access_token);
+        getEmail();                     		
+      } else {
+        console.log('An error occurred');
+        console.log(authResult);
+      }
+    } else {
+      console.log('Empty authResult');
+    }
+  }
+ 
+  function getEmail(){
+	//console.log(gapi.client); 
+    gapi.client.load('oauth2', 'v2', function() {
+          var request = gapi.client.oauth2.userinfo.get();
+          request.execute(getEmailCallback);
+      });
+  }
 
+  function getEmailCallback(obj){
+	     
+    if (obj['email']) {
+	  $('#email').html(obj['email']);
+	  $("#user").val(obj['email']);
+	  $('#form').show('slow');
+	  $('#email').show('slow');
+	  
+	  load();
+    }
+	
+  } 
+  
+  function disconnectUser() {
+  var revokeUrl = 'https://accounts.google.com/o/oauth2/revoke?token=' +
+              $('#access_token').val();
+
+	console.log(revokeUrl);
+  // Exécuter une requête GET asynchrone.
+  $.ajax({
+    type: 'GET',
+    url: revokeUrl,
+    async: false,
+    contentType: "application/json",
+    dataType: 'jsonp',
+    success: function(nullResponse) {		
+        $('#form').hide('slow');
+        $('#email').hide('slow');
+        $('#signin-button').show('slow');	
+    },
+    error: function(e) {
+		console.log(e);
+      // Gérer l'erreur
+      // console.log(e);
+      // Orienter éventuellement les utilisateurs vers une dissociation manuelle en cas d'échec
+      // https://plus.google.com/apps
+    }
+  });
+}
+
+// MAP section -------------------------------------------------------------------------------------  
+  
+  
 function load() {
   var date = $( "#datepicker" ).val(); 
+  var device = $( "#device" ).val(); 
+  var acc = $( "#acc" ).val(); 
+  var user = $( "#user" ).val(); 
+  
+  console.log("user = "+user);
+  
+  if (user != "tomcasa@gmail.com" ){
+	return;
+  }
   //alert(date);
   json=null;
+  location.hash = '#' + 'date=' + date + '&device='+device+ '&acc='+acc;
   
   var fileref=document.createElement('script');
   fileref.setAttribute("type","text/javascript");
-  fileref.setAttribute("src", "https://script.google.com/macros/s/AKfycbwLdpoLSi-UbyY1I-7z24YRnt9JMSTmq20IlB5rtiDtpQqdEow/exec?div=Note%20Tom&date="+date);
+  fileref.setAttribute("src", "https://script.google.com/macros/s/AKfycbwLdpoLSi-UbyY1I-7z24YRnt9JMSTmq20IlB5rtiDtpQqdEow/exec?div="+device+"&date="+date+"&user="+user);
 
   document.getElementsByTagName("head")[0].appendChild(fileref);
   //alert(json.date);
@@ -60,22 +152,26 @@ function initialize() {
 
 //  alert(points);
 
+var acc = parseInt($( "#acc" ).val()); 
 
 var i=0;
 var j=0;
 var x0=0;
 var y0=0;
 
+var bounds = new google.maps.LatLngBounds();
+  
 for(var x=0; x<json.data.length; x++) {     
-     if(json.data[x][2]>0){
+    if(json.data[x][2]>0 && parseInt(json.data[x][6])<=acc){ 
         points[i] = new google.maps.LatLng(json.data[x][3], json.data[x][2]);
+		bounds.extend(points[i]);
         i++;
         if (i==1){
           //alert(json.data[x][2] + " " + json.data[x][3])
           x0=json.data[x][3];
           y0=json.data[x][2];
         }         
-     } 
+    } 
 }  
 
 //alert("count "+i);
@@ -115,10 +211,12 @@ for(var x=0; x<json.data.length; x++) {
   var map = new google.maps.Map(document.getElementById('map-canvas'), mapOptions);
   
   flightPath.setMap(map);
+  map.fitBounds(bounds);
 
   
 for(var x=0; x<json.data.length; x++) {     
-     if(json.data[x][2]>0){ 
+     if(json.data[x][2]>0 && parseInt(json.data[x][6])<=acc){ 
+		
 		var loc = new google.maps.LatLng(json.data[x][3], json.data[x][2]);			
         
         if (json.data[x][1]=="fused"){
@@ -132,7 +230,7 @@ for(var x=0; x<json.data.length; x++) {
 			position: loc,
 			icon: ic,
 			map: map,						
-			title: json.data[x][0] + " " + json.data[x][1]
+			title: json.data[x][0] + " " + json.data[x][1]+ " \nAltitude: " + json.data[x][4]+"\nSpeed: " + json.data[x][5]+"\nAccuracy: " + json.data[x][6]+""
 		});
 
      } 
@@ -161,8 +259,35 @@ for(var x=0; x<json.data.length; x++) {
     });
 	
 	
-	load();
+	
+	$(window).resize(function(){
+		$( "#menu" ).position({
+			at: "top",
+			my: "top",
+			of: $(window)
+		});
+	});
 
+		
+	if (window.location.hash) {
+		var params = (window.location.hash.substr(1)).split("&");
+		for (i = 0; i < params.length; i++)
+		{
+			var a = params[i].split("=");
+			if (a[0] == "date"){
+				$( "#datepicker" ).val(a[1]);
+			} else  if (a[0] == "device"){
+				$( "#device" ).val(a[1]);
+			} else  if (a[0] == "acc"){
+				$( "#acc" ).val(a[1]);
+			}
+		}
+	}
+	
+	$('#revokeButton').click(disconnectUser);
+
+	load();
+	
   });
 
 
@@ -171,13 +296,58 @@ for(var x=0; x<json.data.length; x++) {
   <body>
    
     <div id="menu">
+		<div id="form" class="hide">
         <input type="text" id="datepicker" >
-        <select id="format">
+        <select id="device">
             <option value="Note%20Tom">Note Tom</option>
+            <option value="Note%202%20Tom">Note 2 Tom</option>
+            <option value="Qing">Qing</option>
         </select>
+				
+		<select id="acc">
+		  <option value="20">20m</option>
+		  <option value="30">30m</option>
+		  <option value="40">40m</option>
+		  <option value="50">50m</option>
+		  <option value="60">60m</option>
+		  <option value="70">70m</option>
+		  <option value="80">80m</option>
+		  <option value="100">100m</option>
+		  <option value="200">200m</option>
+		  <option value="1000">All</option>
+		</select>
+		
+		<input type="hidden"  id="user"  value="anonymous">
+		<input type="hidden"  id="access_token"  value="">
+		
         <input type="button" value="load" onclick="load();">
+		<input type="button" value="logoff" id="revokeButton">
+
+				
         <!--a id="aload" href="#" onclick="load();">load</a--> 
+		</div>
+		
+		  <div id="signin-button" class="show">
+			 <div class="g-signin" data-callback="loginFinishedCallback"
+			  data-approvalprompt_2="force"
+			  data-approvalprompt="auto"			  
+			  data-clientid="761186212253-5bjkjpehr8l4jo75lkv28hep6rcl0cfe.apps.googleusercontent.com"
+			  data-clientid_0.10="761186212253-5bjkjpehr8l4jo75lkv28hep6rcl0cfe.apps.googleusercontent.com"
+			  data-clientid_drive="761186212253-53ltgtavipfudtupf8tqq60o8gnogoi7.apps.googleusercontent.com"
+			  data-scope_old="https://www.googleapis.com/auth/plus.login https://www.googleapis.com/auth/userinfo.email"
+			  data-scope="https://www.googleapis.com/auth/userinfo.email"
+			  data-height="short"
+			  data-cookiepolicy_2="http://192.168.0.10"
+			  data-cookiepolicy="single_host_origin"
+			  data-accesstype="online"
+			  >
+			</div>
+		  </div>
+		  <div id="email" class="hide"></div>
+		  
     </div>
+		 
+	  
     <div id="map-canvas"></div>
     
   </body>
