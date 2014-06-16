@@ -1,4 +1,4 @@
-package app;
+package appli;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -23,6 +23,7 @@ import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentSender.SendIntentException;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
 import android.hardware.Sensor;
@@ -36,6 +37,7 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Looper;
@@ -43,7 +45,6 @@ import android.provider.Settings.Secure;
 import android.telephony.CellInfo;
 import android.telephony.CellInfoGsm;
 import android.telephony.CellLocation;
-import android.telephony.NeighboringCellInfo;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
 import android.telephony.gsm.GsmCellLocation;
@@ -59,8 +60,16 @@ import android.widget.EditText;
 import android.widget.ScrollView;
 import android.widget.Switch;
 import android.widget.TextView;
+import android.widget.Toast;
+import app.PerroMon.R;
 
-import com.monitor.R;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.GooglePlayServicesClient.ConnectionCallbacks;
+import com.google.android.gms.common.GooglePlayServicesClient.OnConnectionFailedListener;
+import com.google.android.gms.common.Scopes;
+import com.google.android.gms.plus.PlusClient;
+import com.google.android.gms.plus.PlusClient.OnPeopleLoadedListener;
+import com.google.android.gms.plus.model.people.PersonBuffer;
 
 @SuppressLint({ "SimpleDateFormat", "DefaultLocale" })
 public class PerroMon extends Activity {
@@ -90,22 +99,22 @@ public class PerroMon extends Activity {
 	private SharedPreferences pref;
 	private Switch switchRecordOn;
 	private Switch switchSaveDrive;
-	private static LocationListener locationListener; 
-	private static LocationManager locationManager;
+	private LocationListener locationListener; 
+	private LocationManager locationManager;
 	private CheckBox cbGPSAuto;
 	private CheckBox cbDetails;
-	private static long lastSave = new Date().getTime();
-	private static int countEvents;
+	private long lastSave = new Date().getTime();
+	private int countEvents;
 	private TextView textView1;
 	private TextView tSaveInterSec;
-	private static long lastData;
-	private static LinkedList<Evt> listE = new LinkedList<PerroMon.Evt>();
+	private long lastData;
+	private LinkedList<Evt> listE = new LinkedList<PerroMon.Evt>();
 	private EditText tDevName;
 	private EditText tMaxInterval;
 	private Button saveNow;
 	private ScrollView scroll;
 	private Button scrollLog;
-	private static long netRequested;
+	private long netRequested;
 	private Switch switchRequestLoc;
 	private Listener gpsStatList;
 	private SensorManager sensorMan;
@@ -120,12 +129,15 @@ public class PerroMon extends Activity {
 	private PhoneStateListener phoneListener;
 	protected List<CellInfo> mCellInfo;
 	protected int lastCellId;
-	private static long gpsAsked;
-	private static long gpsRequested = 0;
-	private static Date startDate = new Date();
-	private static Conf conf= new Conf();
-	private static ScheduledThreadPoolExecutor pool = new ScheduledThreadPoolExecutor(1); 
-	private static int gpsStatus = GpsStatus.GPS_EVENT_STOPPED;
+	private PlusClient mPlusClient;
+	private Button bSignin;
+	protected Object mConnectionResult;
+	private long gpsAsked;
+	private long gpsRequested = 0;
+	private Date startDate = new Date();
+	private Conf conf= new Conf();
+	private ScheduledThreadPoolExecutor pool = new ScheduledThreadPoolExecutor(1); 
+	private int gpsStatus = GpsStatus.GPS_EVENT_STOPPED;
 	
 	public String getPhoneName() {
 		BluetoothAdapter myDevice = BluetoothAdapter.getDefaultAdapter();
@@ -169,6 +181,10 @@ public class PerroMon extends Activity {
 			
 		setContentView(R.layout.activity_monitor);
 		 
+
+		initGPus();
+	    
+	    
 		locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
 		gpsStatList = new Listener() {
 
@@ -225,6 +241,7 @@ public class PerroMon extends Activity {
 		cbGPSAuto.setOnCheckedChangeListener(new OnCheckedChangeListener() {
 			public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {				
 				detectMov();
+				
 			}
 		});
 		
@@ -362,6 +379,91 @@ public class PerroMon extends Activity {
 
 	} 
 
+	private void initGPus() {
+
+
+		bSignin = ((Button) findViewById(R.id.Signin));
+		bSignin.setOnClickListener(new OnClickListener() {
+			
+			@Override
+			public void onClick(View v) {
+				try{
+					mPlusClient.connect();
+				}catch(Exception e){
+					log(e.toString(),e);
+				}
+			}
+		});		
+		
+		
+		
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.FROYO) {
+			log("build " + Build.VERSION.SDK_INT +"<"+ Build.VERSION_CODES.FROYO);
+		    return;
+		}
+		
+		ConnectionCallbacks cb = new ConnectionCallbacks() {
+			
+			@Override
+			public void onDisconnected() {
+		        Toast.makeText(PerroMon.this, "Disconnected", Toast.LENGTH_LONG).show();
+				
+			}
+			
+			@Override
+			public void onConnected(Bundle arg0) {
+
+		        String accountName = mPlusClient.getAccountName();
+		        Toast.makeText(PerroMon.this, accountName + " is connected.", Toast.LENGTH_LONG).show();
+
+		        mPlusClient.loadPeople(new OnPeopleLoadedListener() {
+					
+					@Override
+					public void onPeopleLoaded(ConnectionResult status, PersonBuffer personBuffer, String nextPageToken) {
+
+				        Toast.makeText(PerroMon.this, personBuffer.get(0).getDisplayName()+ " is connected.", Toast.LENGTH_LONG).show();
+						
+					}
+				}, "me");
+				
+			}
+		};
+ 
+	    
+		OnConnectionFailedListener cb2 = new OnConnectionFailedListener() {
+			
+			@Override
+			public void onConnectionFailed(ConnectionResult result) {
+				   if (result.hasResolution()) {
+
+				        Toast.makeText(PerroMon.this, "hasResolution", Toast.LENGTH_LONG).show();
+			            try {
+			            	int REQUEST_CODE_RESOLVE_ERR = 9000;
+			            	result.startResolutionForResult(PerroMon.this, REQUEST_CODE_RESOLVE_ERR);
+			            } catch (SendIntentException e) {
+
+					        Toast.makeText(PerroMon.this, "reconnect", Toast.LENGTH_LONG).show();
+			                mPlusClient.connect();
+			            }
+			        }
+			        mConnectionResult = result;				
+			}
+		};
+		
+	    mPlusClient = new PlusClient.Builder(this, cb, cb2)
+//    	.setActions(Scopes.PROFILE)
+//    	.setActions(Scopes.PLUS_ME)
+	    	.setActions("http://schemas.google.com/AddActivity", "http://schemas.google.com/BuyActivity")
+	        .build();
+
+	    
+
+		
+	}
+
+
+
+
 	@SuppressLint("FloatMath")
 	private void detectMov() {
 
@@ -409,8 +511,9 @@ public class PerroMon extends Activity {
 			
 			if(sensorEventListener != null){
 				sensorMan.unregisterListener(sensorEventListener);
-				gpsAsked = 0;
+				gpsAsked = 0;				
 				movDetected();
+				sensorEventListener = null;
 			}
 		}
 	}
@@ -661,7 +764,7 @@ public class PerroMon extends Activity {
 				}
 
 				if (listE.size() > 0) {
-					trySave();
+					checkSave();
 				}
 
 			}
@@ -819,8 +922,7 @@ public class PerroMon extends Activity {
 				
 			} else {
 				
-				
-				log("recording ..." + "\n");
+				log("start recording ..." + "\n");
 				// Define a listener that responds to location updates
 				locationListener = new LocationListener() {
 					public void onLocationChanged(Location location) {
@@ -844,8 +946,7 @@ public class PerroMon extends Activity {
 					}
 				};
 
-				locationManager
-						.requestLocationUpdates(LocationManager.PASSIVE_PROVIDER, 5 * 1000, 20, locationListener);
+				locationManager.requestLocationUpdates(LocationManager.PASSIVE_PROVIDER, 5 * 1000, 20, locationListener);
 				Evt evt = new Evt();
 				evt.label = "start";
 				evt.date = new Date();

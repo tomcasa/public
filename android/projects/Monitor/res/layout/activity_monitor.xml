@@ -16,7 +16,7 @@
         android:layout_alignParentRight="true"
         android:layout_alignParentTop="true"
         android:text="Recording Location" />
-
+ 
     <Switch
         android:id="@+id/switchSaveDrive"
         android:layout_width="wrap_content"
@@ -132,7 +132,9 @@
         android:layout_alignRight="@+id/textView2"
         android:layout_below="@+id/tMaxInterval"
         android:text="Scroll" />
- 
+    
+    
+    
     <ScrollView
         android:id="@+id/scrollView1"
         android:layout_width="wrap_content"
@@ -160,6 +162,12 @@
         </LinearLayout>
     </ScrollView>
 
-    
+    <Button
+        android:id="@+id/Signin"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/scrollView1"
+        android:layout_toLeftOf="@+id/scrollLog"
+        android:text="Signin" />
     
 </RelativeLayout>

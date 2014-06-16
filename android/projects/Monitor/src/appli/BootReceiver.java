@@ -1,4 +1,4 @@
-package app;
+package appli;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
