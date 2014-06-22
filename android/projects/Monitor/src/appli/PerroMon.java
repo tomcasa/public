@@ -41,6 +41,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Looper;
+import android.preference.PreferenceManager;
 import android.provider.Settings.Secure;
 import android.telephony.CellInfo;
 import android.telephony.CellInfoGsm;
@@ -50,6 +51,8 @@ import android.telephony.TelephonyManager;
 import android.telephony.gsm.GsmCellLocation;
 import android.util.FloatMath;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
@@ -66,7 +69,8 @@ import app.PerroMon.R;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesClient.ConnectionCallbacks;
 import com.google.android.gms.common.GooglePlayServicesClient.OnConnectionFailedListener;
-import com.google.android.gms.common.Scopes;
+import com.google.android.gms.drive.internal.an;
+import com.google.android.gms.maps.internal.IStreetViewPanoramaViewDelegate;
 import com.google.android.gms.plus.PlusClient;
 import com.google.android.gms.plus.PlusClient.OnPeopleLoadedListener;
 import com.google.android.gms.plus.model.people.PersonBuffer;
@@ -95,22 +99,22 @@ public class PerroMon extends Activity {
 
 	}
 
+	private final String keyDevNam = "deviceName";
+	private final String saveIntervalSec = "saveIntervalSec";
+	private final String reqIntervalSec = "reqIntervalSec";
+	
 	static SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd,HH:mm:ss");
 	private SharedPreferences pref;
-	private Switch switchRecordOn;
-	private Switch switchSaveDrive;
+	private Switch switchRecordOn; 
 	private LocationListener locationListener; 
 	private LocationManager locationManager;
 	private CheckBox cbGPSAuto;
 	private CheckBox cbDetails;
 	private long lastSave = new Date().getTime();
 	private int countEvents;
-	private TextView textView1;
-	private TextView tSaveInterSec;
+	private TextView textView1; 
 	private long lastData;
-	private LinkedList<Evt> listE = new LinkedList<PerroMon.Evt>();
-	private EditText tDevName;
-	private EditText tMaxInterval;
+	private LinkedList<Evt> listE = new LinkedList<PerroMon.Evt>(); 
 	private Button saveNow;
 	private ScrollView scroll;
 	private Button scrollLog;
@@ -129,8 +133,7 @@ public class PerroMon extends Activity {
 	private PhoneStateListener phoneListener;
 	protected List<CellInfo> mCellInfo;
 	protected int lastCellId;
-	private PlusClient mPlusClient;
-	private Button bSignin;
+	private PlusClient mPlusClient; 
 	protected Object mConnectionResult;
 	private long gpsAsked;
 	private long gpsRequested = 0;
@@ -138,20 +141,10 @@ public class PerroMon extends Activity {
 	private Conf conf= new Conf();
 	private ScheduledThreadPoolExecutor pool = new ScheduledThreadPoolExecutor(1); 
 	private int gpsStatus = GpsStatus.GPS_EVENT_STOPPED;
-	
-	public String getPhoneName() {
-		BluetoothAdapter myDevice = BluetoothAdapter.getDefaultAdapter();
-
-		if (myDevice == null) {
-			String android_id = Secure.getString(getContentResolver(), Secure.ANDROID_ID);
-			return android_id;
-		} else {
-			String deviceName = myDevice.getName();
-			return deviceName;
-		}
-		
-	}
-	
+	protected String accountName;
+	private Button btShare;
+	private SharedPreferences sharedPrefs;
+	private String android_id;
 
 	
 	
@@ -182,8 +175,12 @@ public class PerroMon extends Activity {
 		setContentView(R.layout.activity_monitor);
 		 
 
+
+		
+		
 		initGPus();
-	    
+
+		
 	    
 		locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
 		gpsStatList = new Listener() {
@@ -201,12 +198,11 @@ public class PerroMon extends Activity {
 
 
 		loadConf();
-		
-		switchSaveDrive = ((Switch) findViewById(R.id.switchSaveDrive));
-		switchSaveDrive.setChecked(conf.save);
+		 
 
 		switchRecordOn = ((Switch) findViewById(R.id.switchRecordOn));
 		switchRecordOn.setChecked(conf.record);
+
 		
 		switchRequestLoc= ((Switch) findViewById(R.id.requestLoc));
 		switchRequestLoc.setChecked(conf.reqLoc);
@@ -221,20 +217,33 @@ public class PerroMon extends Activity {
 
 		textView1 = ((TextView) findViewById(R.id.textView1));
 		
-		tSaveInterSec = ((EditText) findViewById(R.id.tSaveInterSec));
-		tSaveInterSec.setText(""+conf.secSave);
-		
-		tMaxInterval = ((EditText) findViewById(R.id.tMaxInterval));
-		tMaxInterval.setText(""+conf.secReqInt);
-		
-		tDevName = ((EditText) findViewById(R.id.tDevName));
-		tDevName.setText(""+conf.devName);
 
+		
+		btShare = ((Button) findViewById(R.id.btShare));
+		btShare.setOnClickListener(new OnClickListener() {
+			
+
+			@Override
+			public void onClick(View v) {
+				Intent sendIntent = new Intent();
+				sendIntent.setAction(Intent.ACTION_SEND);				
+				//https://googledrive.com/host/0B1jHAHa6ZW9tekRpQVdCLUdJdFU/GPSmap.html#date=2014-06-21&device=Note%20Tom&acc=50&u=tomcasa@gmail.com
+				sendIntent.putExtra(Intent.EXTRA_TEXT, "View your recorded GPS logs on this URL: \n"
+						+ "https://googledrive.com/host/0B1jHAHa6ZW9tekRpQVdCLUdJdFU/GPSmap.html#device="+URLEncoder.encode(sharedPrefs.getString(keyDevNam, "null"))+"&u="+accountName);
+				sendIntent.setType("text/plain");
+				startActivity(Intent.createChooser(sendIntent, "Link to see your records..."));
+			}
+		});
+
+		
 		switchRecordOn.setOnCheckedChangeListener(new OnCheckedChangeListener() {
-			public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {				
-				recordLoc();
-				check();
-				detectMov();
+			public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+				
+				if (isChecked){
+					connect();
+				}else{
+					startRecord();
+				}
 			}
 		});
 
@@ -360,9 +369,10 @@ public class PerroMon extends Activity {
 			telephonyManager.listen(phoneListener, PhoneStateListener.LISTEN_CELL_INFO);
 			telephonyManager.listen(phoneListener, PhoneStateListener.LISTEN_CELL_LOCATION);
 
+			
 			recordLoc();
 			check();	
-		detectMov();
+			detectMov();
 		
 		if (BootReceiver.token){		 
 			Intent startMain = new Intent(Intent.ACTION_MAIN);
@@ -370,7 +380,21 @@ public class PerroMon extends Activity {
 			startMain.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 			startActivity(startMain);
 						
+		}else{
+
 		}
+
+		runOnUiThread(new Runnable() {
+			
+			@Override
+			public void run() {
+				if (switchRecordOn.isChecked()){
+					connect();
+				}else{
+					mPlusClient.disconnect();
+				}				
+			}
+		});
 		
 		}catch (Exception e){
 			log(e.getLocalizedMessage(),e);
@@ -379,21 +403,37 @@ public class PerroMon extends Activity {
 
 	} 
 
-	private void initGPus() {
+	private void connect() {
 
-
-		bSignin = ((Button) findViewById(R.id.Signin));
-		bSignin.setOnClickListener(new OnClickListener() {
-			
-			@Override
-			public void onClick(View v) {
-				try{
+		if (switchRecordOn.isChecked()){
+			try{
+				if (mPlusClient.isConnected() == false ){
+					log("sign in g+");
 					mPlusClient.connect();
-				}catch(Exception e){
-					log(e.toString(),e);
+				}else{
+					startRecord();
 				}
-			}
-		});		
+			}catch(Exception e){
+				log(e.toString(),e);
+			}		
+		}else{
+			accountName = null;
+		}
+	}
+
+
+
+
+	private void startRecord() {
+		
+		recordLoc();
+		check();
+		detectMov();
+		
+	}
+
+	private void initGPus() {
+ 
 		
 		
 		
@@ -407,21 +447,25 @@ public class PerroMon extends Activity {
 			@Override
 			public void onDisconnected() {
 		        Toast.makeText(PerroMon.this, "Disconnected", Toast.LENGTH_LONG).show();
-				
+				log("g+ disconnected");
 			}
 			
 			@Override
 			public void onConnected(Bundle arg0) {
 
-		        String accountName = mPlusClient.getAccountName();
-		        Toast.makeText(PerroMon.this, accountName + " is connected.", Toast.LENGTH_LONG).show();
+		        accountName = mPlusClient.getAccountName();
+		        String l = accountName + " is connected to g+";
+				Toast.makeText(PerroMon.this, l , Toast.LENGTH_LONG).show();
+				log(l);
 
+				startRecord();
+				
 		        mPlusClient.loadPeople(new OnPeopleLoadedListener() {
 					
 					@Override
 					public void onPeopleLoaded(ConnectionResult status, PersonBuffer personBuffer, String nextPageToken) {
 
-				        Toast.makeText(PerroMon.this, personBuffer.get(0).getDisplayName()+ " is connected.", Toast.LENGTH_LONG).show();
+				        Toast.makeText(PerroMon.this, "Hello " + personBuffer.get(0).getDisplayName(), Toast.LENGTH_LONG).show();
 						
 					}
 				}, "me");
@@ -436,13 +480,16 @@ public class PerroMon extends Activity {
 			public void onConnectionFailed(ConnectionResult result) {
 				   if (result.hasResolution()) {
 
-				        Toast.makeText(PerroMon.this, "hasResolution", Toast.LENGTH_LONG).show();
+					    switchRecordOn.setChecked(false);
+					    
+				        Toast.makeText(PerroMon.this, "Loading ...", Toast.LENGTH_LONG).show();
 			            try {
 			            	int REQUEST_CODE_RESOLVE_ERR = 9000;
 			            	result.startResolutionForResult(PerroMon.this, REQUEST_CODE_RESOLVE_ERR);
+			            				            				            	
 			            } catch (SendIntentException e) {
 
-					        Toast.makeText(PerroMon.this, "reconnect", Toast.LENGTH_LONG).show();
+					        Toast.makeText(PerroMon.this, "Reconnect ...", Toast.LENGTH_LONG).show();
 			                mPlusClient.connect();
 			            }
 			        }
@@ -455,8 +502,6 @@ public class PerroMon extends Activity {
 //    	.setActions(Scopes.PLUS_ME)
 	    	.setActions("http://schemas.google.com/AddActivity", "http://schemas.google.com/BuyActivity")
 	        .build();
-
-	    
 
 		
 	}
@@ -566,16 +611,26 @@ public class PerroMon extends Activity {
 	
 	private void loadConf() {
 		
-		pref = getPreferences(MODE_PRIVATE);
-		conf.save = pref.getBoolean(R.id.switchSaveDrive + "", false);
+		pref = getPreferences(MODE_PRIVATE); 
 		conf.record = pref.getBoolean(R.id.switchRecordOn + "", false);
 		conf.reqLoc = pref.getBoolean(R.id.requestLoc + "", false);
 		conf.gpsAuto = pref.getBoolean(R.id.cbGPSAuto + "", false);
-		conf.details = pref.getBoolean(R.id.cbDetails + "", false);
-		conf.secSave = pref.getInt(R.id.tSaveInterSec+ "", 0);
-		conf.secReqInt = pref.getInt(R.id.tMaxInterval+ "", 0);
-		conf.devName= pref.getString(R.id.tDevName+ "", getPhoneName());
+		conf.details = pref.getBoolean(R.id.cbDetails + "", false); 
 		
+		sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this);
+		
+		BluetoothAdapter myDevice = BluetoothAdapter.getDefaultAdapter();
+		android_id = Secure.getString(getContentResolver(), Secure.ANDROID_ID);
+		
+		if (myDevice != null) {
+			android_id += "-"+myDevice.getName();			
+		}
+		String n = sharedPrefs.getString(keyDevNam, android_id);
+		if (n.equals(android_id)){
+			Editor p = sharedPrefs.edit();
+			p.putString(keyDevNam, n);
+			p.commit();			
+		}		
 	}
 
 	private void check() {
@@ -597,8 +652,9 @@ public class PerroMon extends Activity {
 			
 			return;
 		}
+		
 
-		long max = Long.parseLong("" + tMaxInterval.getText());
+		long max = Long.parseLong(sharedPrefs.getString(reqIntervalSec, "120"));
 		if (max < 5)
 			max = 5;
 
@@ -652,11 +708,7 @@ public class PerroMon extends Activity {
 			editor.putBoolean("" + R.id.cbDetails, cbDetails.isChecked());
 			editor.putBoolean("" + R.id.cbGPSAuto, cbGPSAuto.isChecked());
 			editor.putBoolean("" + R.id.switchRecordOn, switchRecordOn.isChecked());
-			editor.putBoolean("" + R.id.requestLoc, switchRequestLoc.isChecked());		
-			editor.putBoolean("" + R.id.switchSaveDrive, switchSaveDrive.isChecked());
-			try{ editor.putInt("" + R.id.tSaveInterSec, Integer.parseInt(""+tSaveInterSec.getText())); }catch(Exception e){}		
-			try{ editor.putInt("" + R.id.tMaxInterval, Integer.parseInt(""+tMaxInterval.getText())); }catch(Exception e){}
-			editor.putString("" + R.id.tDevName, ""+tDevName.getText());
+			editor.putBoolean("" + R.id.requestLoc, switchRequestLoc.isChecked());		  
 	
 			editor.commit();
 		} catch (Exception e) {
@@ -668,7 +720,6 @@ public class PerroMon extends Activity {
 	@SuppressLint("DefaultLocale")
 	private void makeUseOfNewLocation(final Location location) throws IOException {
 
-		if (switchSaveDrive.isChecked()) {
 
 			if (lastData == location.getTime()){
 				return;
@@ -693,10 +744,8 @@ public class PerroMon extends Activity {
 			lastData = location.getTime();
 			log("get " + location.getProvider().toUpperCase() + " loc " + format.format(new Date()).substring(11) + " (p" + listE.size() + ")");
 
+			
 			checkSave();
-		} else {
-			log("save disabled");
-		}
 	}
 
 	private void checkSave() {
@@ -712,10 +761,14 @@ public class PerroMon extends Activity {
 		}
 
 		long diff = lastData - lastSave;
-
-		long st = Long.parseLong("" + tSaveInterSec.getText());
+ 
+		long st = Long.parseLong(sharedPrefs.getString(saveIntervalSec, "600"));
 		if (st<60)
 			st =60;
+		
+//		if (cbDetails.isChecked()){
+//			log("saveIntervalSec="+st);
+//		}
 		
 		if ( listE.size() > maxI){
 			
@@ -824,7 +877,7 @@ public class PerroMon extends Activity {
 //		String ut = "https://script.google.com/macros/s/AKfycbzx8IyveRdV-eaaukr8GkXZVYYI6qdT8kKv-RicUUo/dev";
 		String ut = "https://script.google.com/macros/s/AKfycbwhx0tQ2KemfVBM1Zz7_Xo38RalVmxCAWhhdHQiLP1_mXMc9eM/exec";
 		
-		URL url = new URL(ut+"?div="+getDeviceName()+"&js="
+		URL url = new URL(ut+"?div="+getDeviceName()+"&user="+accountName+"&js="
 		+URLEncoder.encode(sb.toString(), "UTF-8"));
 		
 //		log(ut);
@@ -843,7 +896,7 @@ public class PerroMon extends Activity {
 	@SuppressWarnings("deprecation")
 	private String getDeviceName() {
 		
-		return URLEncoder.encode(tDevName.getText().toString());		
+		return URLEncoder.encode(sharedPrefs.getString(keyDevNam, "null"));		
 	}
 
 	public boolean isOnline() {
@@ -1110,5 +1163,45 @@ public class PerroMon extends Activity {
 	}
 	
 	
+	  @Override
+	    public boolean onCreateOptionsMenu(Menu menu) {
+	        getMenuInflater().inflate(R.menu.monitor, menu);
+	        return true;
+	    }
+	 
+
+	    private static final int RESULT_SETTINGS = 1;
+	    @Override
+	    public boolean onOptionsItemSelected(MenuItem item) {
+	        switch (item.getItemId()) {
+	 
+	        case R.id.action_settings:
+	            Intent i = new Intent(this, PerroPreferenceActivity.class);
+	            startActivityForResult(i, RESULT_SETTINGS);
+	            break;
+	 
+	        }
+	 
+	        return true;
+	    }
+	    
+	    @Override
+	    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+	        super.onActivityResult(requestCode, resultCode, data);
+	 
+	        switch (requestCode) {
+	        case RESULT_SETTINGS:
+
+				CharSequence l = "Settings OK";
+				Toast.makeText(PerroMon.this, l , Toast.LENGTH_LONG).show();
+				log(l.toString());
+	            break;
+	 
+	        }
+	 
+	    }
+	    
+	    
+	 
 	
 }

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" >
+ 
+    <PreferenceCategory android:title="Settings" >
+        <EditTextPreference
+                android:title="Device Name"
+                android:key="deviceName"/>
+        <EditTextPreference
+                android:title="Save Interval"
+                android:summary="max duration in seconds between 2 savings attemps"                
+    			android:defaultValue="600" 
+                android:inputType="number"
+                android:key="saveIntervalSec"/>
+        <EditTextPreference
+                android:title="Requests Intervals"
+                android:summary="if request network location mode is active : max duration in seconds between 2 requests"
+                android:inputType="number" 
+    			android:defaultValue="120"                
+                android:key="reqIntervalSec"/>                
+    </PreferenceCategory> 
+</PreferenceScreen>
