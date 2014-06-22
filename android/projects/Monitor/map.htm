@@ -18,6 +18,14 @@
         text-align: center;
         z-index: 10;
       }
+      #more {        
+		padding: 0;
+        display: inline-block;
+      }
+      #moreSub {   
+		width: 120px;
+        text-align: left;
+      }
       #menuVis {
         border-radius: 3px;
         border: 1px solid #CCCCCC;
@@ -33,7 +41,7 @@
 	hosts list http://blog.jqueryui.com/2010/09/jquery-ui-1-8-5/
 	link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.10.4/themes/smoothness/jquery-ui.css" /
 	-->
-    <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.5/themes/sunny/jquery-ui.css" />
+    <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.10.4/themes/smoothness/jquery-ui.css" />
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.10.4/jquery-ui.min.js"></script>
     <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&amp;sensor=false"></script>
@@ -120,7 +128,7 @@ function load() {
   
   console.log("user = "+user);
   
-  if (user != "tomcasa@gmail.com" ){
+  if (user == "anonymous" ){
 	return;
   }
   //alert(date);
@@ -136,6 +144,7 @@ function load() {
 
 }     
 
+
 function callback() {
     
 	var htm = '';	
@@ -144,6 +153,15 @@ function callback() {
 	}  
 
 	$("#device").html(htm);	
+	
+  var date = $( "#datepicker" ).val(); 
+  var device = json.div; 
+  var acc = $( "#device" ).val(device); 
+  var acc = $( "#acc" ).val(); 
+  var user = $( "#user" ).val(); 
+  
+  location.hash = '#' + 'date=' + date + '&device='+device+ '&acc='+acc;
+
     initialize();
 	
 }
@@ -237,7 +255,7 @@ for(var x=0; x<json.data.length; x++) {
 			position: loc,
 			icon: ic,
 			map: map,						
-			title: json.data[x][0] + " " + json.data[x][1]+ " \nAltitude: " + json.data[x][4]+"\nSpeed: " + json.data[x][5]+"\nAccuracy: " + json.data[x][6]+""
+			title: json.data[x][0] + " " + json.data[x][1]+ " \nAltitude: " + json.data[x][5]+" m \nSpeed: " + json.data[x][4]+" km/h \nAccuracy: " + json.data[x][6]+" m"
 		});
 
      } 
@@ -284,19 +302,32 @@ for(var x=0; x<json.data.length; x++) {
 			if (a[0] == "date"){
 				$( "#datepicker" ).val(a[1]);
 			} else  if (a[0] == "device"){
-				$( "#device" ).val(a[1]);
+				$( "#device" ).html('<option value="'+a[1]+'">'+a[1]+'</option>');
 			} else  if (a[0] == "acc"){
 				$( "#acc" ).val(a[1]);
 			}
 		}
 	}
 	
-	$('#revokeButton').click(disconnectUser);
+	//$('#revokeButton').click();
+	
+	
+    $( "#more" ).menu();
 
-	load();
+	
+	
+	
+	//load();
 	
   });
 
+
+  
+function downloadData(){
+
+	$("#ddata").prop("href","data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(json.data)));
+
+}
 
     </script>
   </head>
@@ -324,13 +355,18 @@ for(var x=0; x<json.data.length; x++) {
 		<input type="hidden"  id="user"  value="anonymous">
 		<input type="hidden"  id="access_token"  value="">
 		
-        <input type="button" value="load" onclick="load();">
-		<input type="button" value="sign out" id="revokeButton">
-
+        <input type="button" value="Load" onclick="load();">
+ 
+		<ul id="more">
+			<li><a href="#">More</a>
+				<ul id="moreSub">
+					  <li><a href="#" onclick="disconnectUser();" >Sign-out</a></li>
+					  <li><a id="ddata" href="#" onclick="downloadData();" download>Download Data</a></li>
+				</ul>	  
+			</li>	   
+		</ul>
 				
-        <!--a id="aload" href="#" onclick="load();">load</a--> 
 		</div>
-		
 		  <div id="signin-button" class="show">
 			 <div class="g-signin" data-callback="loginFinishedCallback"
 			  data-approvalprompt_2="force"
@@ -348,12 +384,10 @@ for(var x=0; x<json.data.length; x++) {
 			  >
 			</div>
 		  </div>
-		  <div id="email" class="hide"></div>
+		  <div id="email" class="hide"></div> 
 		  
     </div>
-		 
 	  
     <div id="map-canvas"></div>
-    
   </body>
 </html>
