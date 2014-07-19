@@ -44,7 +44,6 @@ import android.os.Looper;
 import android.preference.PreferenceManager;
 import android.provider.Settings.Secure;
 import android.telephony.CellInfo;
-import android.telephony.CellInfoGsm;
 import android.telephony.CellLocation;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
@@ -59,7 +58,6 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.CompoundButton.OnCheckedChangeListener;
-import android.widget.EditText;
 import android.widget.ScrollView;
 import android.widget.Switch;
 import android.widget.TextView;
@@ -69,8 +67,7 @@ import app.PerroMon.R;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesClient.ConnectionCallbacks;
 import com.google.android.gms.common.GooglePlayServicesClient.OnConnectionFailedListener;
-import com.google.android.gms.drive.internal.an;
-import com.google.android.gms.maps.internal.IStreetViewPanoramaViewDelegate;
+import com.google.android.gms.location.ActivityRecognitionClient;
 import com.google.android.gms.plus.PlusClient;
 import com.google.android.gms.plus.PlusClient.OnPeopleLoadedListener;
 import com.google.android.gms.plus.model.people.PersonBuffer;
@@ -145,6 +142,8 @@ public class PerroMon extends Activity {
 	private Button btShare;
 	private SharedPreferences sharedPrefs;
 	private String android_id;
+	private ActivityRecognitionClient mActivityRecognitionClient;
+	public static PerroMon instance;
 
 	
 	
@@ -175,12 +174,13 @@ public class PerroMon extends Activity {
 		setContentView(R.layout.activity_monitor);
 		 
 
+		instance = this;
 
 		
 		
 		initGPus();
 
-		
+		actReco();
 	    
 		locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
 		gpsStatList = new Listener() {
@@ -337,6 +337,8 @@ public class PerroMon extends Activity {
 
 				@Override
 				public void onCellInfoChanged(java.util.List<android.telephony.CellInfo> cellInfo) {
+					log("cell ID " + cellInfo);
+					/* require SDK 17 
 					mCellInfo = cellInfo;
 					if (mCellInfo != null) {
 						for (Iterator<CellInfo> iterator = cellInfo.iterator(); iterator.hasNext();) {
@@ -349,6 +351,7 @@ public class PerroMon extends Activity {
 						}
 					}
 					super.onCellInfoChanged(cellInfo);
+					*/
 				};
 
 				@Override
@@ -402,6 +405,32 @@ public class PerroMon extends Activity {
 		
 
 	} 
+
+	private void actReco() {
+//
+//        mActivityRecognitionClient = new ActivityRecognitionClient(this, new ConnectionCallbacks() {
+//			
+//			@Override
+//			public void onDisconnected() {
+//				// TODO Auto-generated method stub
+//				
+//			}
+//			
+//			@Override
+//			public void onConnected(Bundle arg0) {
+//				// TODO Auto-generated method stub
+//				
+//			}
+//		}, new OnConnectionFailedListener() {
+//			
+//			@Override
+//			public void onConnectionFailed(ConnectionResult arg0) {
+//				// TODO Auto-generated method stub
+//				
+//			}
+//		});
+//        
+	}
 
 	private void connect() {
 
@@ -1029,7 +1058,7 @@ public class PerroMon extends Activity {
 
 	}
 
-	private void log(final String string) {
+	public void log(final String string) {
 		appendLog(string);
 		
 		runOnUiThread(new Runnable() {

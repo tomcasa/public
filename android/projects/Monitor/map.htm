@@ -1,7 +1,8 @@
+<!DOCTYPE html>
 <html>
 <head>
     <link rel='shortcut icon' href='icon2.ico'>
-    <title>GPS Log Viewer</title>
+    <title>PerroMon Data Viewer</title>
     <style>
       html, body, #map-canvas {
         height: 100%;
@@ -34,6 +35,22 @@
 		  
 	  .hide { display: none;}
 	  .show { display: block;}
+	  
+	  
+	  #modal {
+			display:    none;
+			position:   fixed;
+			z-index:    100;
+			top:        0;
+			left:       0;
+			height:     100%;
+			width:      100%;
+			background: rgba( 255, 255, 255, .8 ) 
+						url('loading.gif') 
+						50% 50% 
+						no-repeat;
+      }
+
     </style> 
     
     
@@ -55,9 +72,9 @@
   function loginFinishedCallback(authResult) {
     if (authResult) {
       if (authResult['error'] == undefined){
-		console.log(authResult.access_token);
+		//console.log(authResult.access_token);
         gapi.auth.setToken(authResult); 
-        $('#signin-button').hide('slow');
+        $('#signin-button').fadeOut('slow');
         $('#access_token').val(authResult.access_token);
         getEmail();                     		
       } else {
@@ -82,8 +99,8 @@
     if (obj['email']) {
 	  $('#email').html(obj['email']);
 	  $("#user").val(obj['email']);
-	  $('#form').show('slow');
-	  $('#email').show('slow');
+	  $('#form').fadeIn('slow');
+	  $('#email').fadeIn('slow');
 	  
 	  load();
     }
@@ -103,9 +120,9 @@
     contentType: "application/json",
     dataType: 'jsonp',
     success: function(nullResponse) {		
-        $('#form').hide('slow');
-        $('#email').hide('slow');
-        $('#signin-button').show('slow');	
+        $('#form').fadeOut('slow');
+        $('#email').fadeOut('slow');
+        $('#signin-button').fadeIn('slow');	
     },
     error: function(e) {
 		console.log(e);
@@ -121,6 +138,9 @@
   
   
 function load() {
+    
+   $("#modal").fadeIn(); 
+     
   var date = $( "#datepicker" ).val(); 
   var device = $( "#device" ).val(); 
   var acc = $( "#acc" ).val(); 
@@ -162,12 +182,21 @@ function callback() {
   
   location.hash = '#' + 'date=' + date + '&device='+device+ '&acc='+acc;
 
-    initialize();
+  initialize();
 	
+  $("#modal").fadeOut(); 
 }
 
 function initialize() {
   
+  if (json.data == null){
+      
+      $("#msg").html('no data'); 
+      $("#msg").show(); 
+      return;
+  }else{
+      $("#msg").hide(); 
+  }
   
   var points =[]; 
   
@@ -187,9 +216,10 @@ var y0=0;
 var bounds = new google.maps.LatLngBounds();
   
 for(var x=0; x<json.data.length; x++) {     
-    if(json.data[x][2]>0 && parseInt(json.data[x][6])<=acc){ 
+    if(json.data[x][2]!=null && parseInt(json.data[x][6])<=acc){ 
         points[i] = new google.maps.LatLng(json.data[x][3], json.data[x][2]);
 		bounds.extend(points[i]);
+		console.log(json.data[x][3]+" "+json.data[x][2])
         i++;
         if (i==1){
           //alert(json.data[x][2] + " " + json.data[x][3])
@@ -213,6 +243,8 @@ for(var x=0; x<json.data.length; x++) {
 
   var myLatlng = new google.maps.LatLng(x0,y0);
 
+  console.log("init "+x0+" "+y0);
+  
   var sBlue = {
     path: 'M 0,0 1,0',
     strokeColor: '#000099',
@@ -240,7 +272,7 @@ for(var x=0; x<json.data.length; x++) {
 
   
 for(var x=0; x<json.data.length; x++) {     
-     if(json.data[x][2]>0 && parseInt(json.data[x][6])<=acc){ 
+     if(json.data[x][2]!=null && parseInt(json.data[x][6])<=acc){ 
 		
 		var loc = new google.maps.LatLng(json.data[x][3], json.data[x][2]);			
         
@@ -255,7 +287,7 @@ for(var x=0; x<json.data.length; x++) {
 			position: loc,
 			icon: ic,
 			map: map,						
-			title: json.data[x][0] + " " + json.data[x][1]+ " \nAltitude: " + json.data[x][5]+" m \nSpeed: " + json.data[x][4]+" km/h \nAccuracy: " + json.data[x][6]+" m"
+			title: json.data[x][0] + " " + json.data[x][1]+ " \nAltitude: " + json.data[x][4]+" m \nSpeed: " + parseInt(""+parseFloat(json.data[x][5])*3.6)+" km/h \nAccuracy: " + json.data[x][6]+" m"
 		});
 
      } 
@@ -335,37 +367,37 @@ function downloadData(){
    
     <div id="menu">
 		<div id="form" class="hide">
-        <input type="text" id="datepicker" >
-        <select id="device">
-        </select>
-				
-		<select id="acc">
-		  <option value="20">20m</option>
-		  <option value="30">30m</option>
-		  <option value="40">40m</option>
-		  <option value="50" selected>50m</option>
-		  <option value="60">60m</option>
-		  <option value="70">70m</option>
-		  <option value="80">80m</option>
-		  <option value="100">100m</option>
-		  <option value="200">200m</option>
-		  <option value="1000">All</option>
-		</select>
-		
-		<input type="hidden"  id="user"  value="anonymous">
-		<input type="hidden"  id="access_token"  value="">
-		
-        <input type="button" value="Load" onclick="load();">
- 
-		<ul id="more">
-			<li><a href="#">More</a>
-				<ul id="moreSub">
-					  <li><a href="#" onclick="disconnectUser();" >Sign-out</a></li>
-					  <li><a id="ddata" href="#" onclick="downloadData();" download>Download Data</a></li>
-				</ul>	  
-			</li>	   
-		</ul>
-				
+            <input type="text" id="datepicker" >
+            <select id="device">
+            </select>
+    				
+    		<select id="acc">
+    		  <option value="20">20m</option>
+    		  <option value="30">30m</option>
+    		  <option value="40">40m</option>
+    		  <option value="50" selected>50m</option>
+    		  <option value="60">60m</option>
+    		  <option value="70">70m</option>
+    		  <option value="80">80m</option>
+    		  <option value="100">100m</option>
+    		  <option value="200">200m</option>
+    		  <option value="1000">All</option>
+    		</select>
+    		
+    		<input type="hidden"  id="user"  value="anonymous">
+    		<input type="hidden"  id="access_token"  value="">
+    		
+            <input type="button" value="Load" onclick="load();">
+     
+    		<ul id="more">
+    			<li><a href="#">More</a>
+    				<ul id="moreSub">
+    					  <li><a href="#" onclick="disconnectUser();" >Sign-out</a></li>
+    					  <li><a id="ddata" href="#" onclick="downloadData();" download>Download Data</a></li>
+    				</ul>	  
+    			</li>	   
+    		</ul>
+		 
 		</div>
 		  <div id="signin-button" class="show">
 			 <div class="g-signin" data-callback="loginFinishedCallback"
@@ -384,7 +416,9 @@ function downloadData(){
 			  >
 			</div>
 		  </div>
-		  <div id="email" class="hide"></div> 
+		  <div id="email" class="hide"></div>  
+		<div id="msg" class="hide"></div>
+		<div id="modal" class="hide"></div>
 		  
     </div>
 	  
