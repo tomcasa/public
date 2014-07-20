@@ -1,8 +1,11 @@
 package appli;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileWriter;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
@@ -10,7 +13,9 @@ import java.io.StringWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -20,8 +25,10 @@ import java.util.concurrent.TimeUnit;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentSender.SendIntentException;
 import android.content.SharedPreferences;
@@ -92,6 +99,7 @@ public class PerroMon extends Activity {
 		public int secSave;
 		public int secReqInt;
 		public String devName;
+		public boolean asServ;
  
 
 	}
@@ -100,7 +108,7 @@ public class PerroMon extends Activity {
 	private final String saveIntervalSec = "saveIntervalSec";
 	private final String reqIntervalSec = "reqIntervalSec";
 	
-	static SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd,HH:mm:ss");
+	
 	private SharedPreferences pref;
 	private Switch switchRecordOn; 
 	private LocationListener locationListener; 
@@ -143,6 +151,8 @@ public class PerroMon extends Activity {
 	private SharedPreferences sharedPrefs;
 	private String android_id;
 	private ActivityRecognitionClient mActivityRecognitionClient;
+	private Switch switchServiceOn;
+	private LinkedList<String> dataFiles;
 	public static PerroMon instance;
 
 	
@@ -202,6 +212,9 @@ public class PerroMon extends Activity {
 
 		switchRecordOn = ((Switch) findViewById(R.id.switchRecordOn));
 		switchRecordOn.setChecked(conf.record);
+		
+		switchServiceOn = ((Switch) findViewById(R.id.switchService));
+		switchServiceOn.setChecked(conf.asServ);
 
 		
 		switchRequestLoc= ((Switch) findViewById(R.id.requestLoc));
@@ -235,18 +248,39 @@ public class PerroMon extends Activity {
 			}
 		});
 
-		
+
 		switchRecordOn.setOnCheckedChangeListener(new OnCheckedChangeListener() {
 			public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
 				
 				if (isChecked){
-					connect();
+					connectForStart();
 				}else{
 					startRecord();
 				}
 			}
 		});
+		
+		if (conf.asServ){
+			log("start service at startup");
+			Intent intent = new Intent(PerroMon.this, PlayerService.class);
+			startService(intent);
+		}
 
+		switchServiceOn.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+			public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+
+				Intent intent = new Intent(PerroMon.this, PlayerService.class);
+				if (isChecked){
+					log("start service");
+					startService(intent);
+				}else{
+					log("stop service");
+					stopService(intent);
+				}
+			}
+		});
+
+		
 		cbGPSAuto.setOnCheckedChangeListener(new OnCheckedChangeListener() {
 			public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {				
 				detectMov();
@@ -285,9 +319,9 @@ public class PerroMon extends Activity {
 			log("root " +isTaskRoot());
 			log("init start events size " +listE.size()+ " count "+ countEvents);
 			if (countEvents > 0){
-				log("start date " + format.format(startDate));
+				log("start date " + getFormat().format(startDate));
 				if (lastSave!=0);			
-					log("last saved " + format.format(lastSave));
+					log("last saved " + getFormat().format(lastSave));
 			}
 		}
 
@@ -373,38 +407,68 @@ public class PerroMon extends Activity {
 			telephonyManager.listen(phoneListener, PhoneStateListener.LISTEN_CELL_LOCATION);
 
 			
-			recordLoc();
-			check();	
-			detectMov();
-		
-		if (BootReceiver.token){		 
-			Intent startMain = new Intent(Intent.ACTION_MAIN);
-			startMain.addCategory(Intent.CATEGORY_HOME);
-			startMain.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-			startActivity(startMain);
-						
-		}else{
+			 
 
-		}
+			if (BootReceiver.token) {
+				Intent startMain = new Intent(Intent.ACTION_MAIN);
+				startMain.addCategory(Intent.CATEGORY_HOME);
+				startMain.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+				startActivity(startMain);
 
-		runOnUiThread(new Runnable() {
-			
-			@Override
-			public void run() {
-				if (switchRecordOn.isChecked()){
-					connect();
-				}else{
-					mPlusClient.disconnect();
-				}				
+			} else {
+
 			}
-		});
 		
-		}catch (Exception e){
-			log(e.getLocalizedMessage(),e);
+			loadData();
+			
+			runOnUiThread(new Runnable() {
+
+				@Override
+				public void run() {
+					try {
+						if (switchRecordOn.isChecked()) {
+							connectForStart();
+						}
+					} catch (Exception e) {
+						log(e.getLocalizedMessage(), e);
+					}
+				}
+			});
+			
+			
+			
+
+		} catch (Exception e) {
+			log(e.getLocalizedMessage(), e);
 		}
-		
 
 	} 
+
+	private static DateFormat getFormat() {
+		return new SimpleDateFormat("yyyy-MM-dd,HH:mm:ss");
+	}
+
+	private void loadData() {
+		
+		File f = getFolder();
+		File last = new File(f,"data.last.txt");
+		if (last.exists()){
+			last.renameTo(new File(f,"data."+System.currentTimeMillis()+".txt"));
+		}
+		
+		dataFiles = new LinkedList<String>(Arrays.asList(f.list(new FilenameFilter() {
+			
+			@Override
+			public boolean accept(File dir, String filename) {
+				if (filename.startsWith("data."))
+					return true;
+				else 
+					return false;
+			}
+		})));
+		
+		
+	}
 
 	private void actReco() {
 //
@@ -432,19 +496,28 @@ public class PerroMon extends Activity {
 //        
 	}
 
-	private void connect() {
+	private void connectForStart() {
 
-		if (switchRecordOn.isChecked()){
-			try{
-				if (mPlusClient.isConnected() == false ){
-					log("sign in g+");
+		if (switchRecordOn.isChecked()) {
+			if (accountName != null) {
+				log("start for " + accountName);
+				startRecord();
+			} else {
+				log("g+ login");
+				mPlusClient.connect();
+			}
+		}
+	}
+
+	private void reconnectOrDisconnect() {
+
+		if (switchRecordOn.isChecked() ){
+			if (!mPlusClient.isConnected()){
+					log("start for "+accountName);
 					mPlusClient.connect();
 				}else{
 					startRecord();
 				}
-			}catch(Exception e){
-				log(e.toString(),e);
-			}		
 		}else{
 			accountName = null;
 		}
@@ -453,7 +526,7 @@ public class PerroMon extends Activity {
 
 
 
-	private void startRecord() {
+	public void startRecord() {
 		
 		recordLoc();
 		check();
@@ -597,6 +670,7 @@ public class PerroMon extends Activity {
 	final static SimpleDateFormat hm = new SimpleDateFormat("hh:mm");
 	String hmCurr;
 	private int hmMovSum;
+	private int maxI;
 
 	protected void movDetected() {
 
@@ -645,7 +719,9 @@ public class PerroMon extends Activity {
 		conf.reqLoc = pref.getBoolean(R.id.requestLoc + "", false);
 		conf.gpsAuto = pref.getBoolean(R.id.cbGPSAuto + "", false);
 		conf.details = pref.getBoolean(R.id.cbDetails + "", false); 
-		
+		conf.asServ = pref.getBoolean(R.id.switchService + "", false); 
+		accountName  = pref.getString("accountName" , null);
+
 		sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this);
 		
 		BluetoothAdapter myDevice = BluetoothAdapter.getDefaultAdapter();
@@ -737,7 +813,9 @@ public class PerroMon extends Activity {
 			editor.putBoolean("" + R.id.cbDetails, cbDetails.isChecked());
 			editor.putBoolean("" + R.id.cbGPSAuto, cbGPSAuto.isChecked());
 			editor.putBoolean("" + R.id.switchRecordOn, switchRecordOn.isChecked());
-			editor.putBoolean("" + R.id.requestLoc, switchRequestLoc.isChecked());		  
+			editor.putBoolean("" + R.id.requestLoc, switchRequestLoc.isChecked());		
+			editor.putBoolean("" + R.id.switchService, switchServiceOn.isChecked());		  
+			editor.putString("accountName" , accountName);
 	
 			editor.commit();
 		} catch (Exception e) {
@@ -771,17 +849,37 @@ public class PerroMon extends Activity {
 			evt.loc = location;
 			listE.add(evt);
 			lastData = location.getTime();
-			log("get " + location.getProvider().toUpperCase() + " loc " + format.format(new Date()).substring(11) + " (p" + listE.size() + ")");
+			log("get " + location.getProvider().toUpperCase() + " loc " + getFormat().format(new Date()).substring(11) + " (p" + listE.size() + ")");
 
 			
 			checkSave();
 	}
 
-	private void checkSave() {
-
-		int maxI = 20;
-		 
+	private void persist()   {
 		
+		try {
+			if (listE.size() > maxI + 2) {
+				int end = listE.size() < maxI ? listE.size() : maxI;
+				LinkedList<Evt> listE2 = new LinkedList<PerroMon.Evt>();
+				listE2.addAll(listE.subList(0, end));
+				listE.removeAll(listE2);
+
+				File f = persist("" + System.currentTimeMillis(), getData(listE2));
+				dataFiles.add(f.getName());
+			}
+
+			persist("last", getData(listE));
+
+		} catch (Exception e) {
+			log(e.getLocalizedMessage(), e);
+		}
+	}
+
+	private void checkSave()  {
+
+		persist();
+		
+		maxI = 30;
 		if (!isOnline()) {
 			if (cbDetails.isChecked()){
 				log("waiting internet");
@@ -789,6 +887,10 @@ public class PerroMon extends Activity {
 			return;
 		}
 
+		if (dataFiles.size()>0){
+			trySave();
+		}
+		
 		long diff = lastData - lastSave;
  
 		long st = Long.parseLong(sharedPrefs.getString(saveIntervalSec, "600"));
@@ -820,41 +922,103 @@ public class PerroMon extends Activity {
 	}
 
 	private void trySave() {
-		
-		if (!isOnline() || listE.size() == 0){
+
+		if (!isOnline()) {
 			return;
 		}
-		
-		int end = listE.size() < 30 ? listE.size() : 30; 
-		final LinkedList<Evt> listE2 = new LinkedList<PerroMon.Evt>();
-		listE2.addAll(listE.subList(0, end));
-		listE.removeAll(listE2);
 
-		log("saving to drive " + listE2.size() + " items\n");
-		pool.schedule(new Runnable() {
-			@Override
-			public void run() {
-				try {
-					saveLoc(listE2);
-					countEvents += listE2.size();
-					lastSave = lastData;
-				} catch (final Exception e) {
-					// log("error "+e.getMessage()+"\n", e);
-					String m = e.getMessage();
-					log("not saved " + (m.length() > 60 ? "" : m));
-					listE.addAll(0, listE2);
+		if (dataFiles.size() > 0) {
+
+			log("uploading history (" + dataFiles.size() + " files todo)");
+			pool.schedule(new Runnable() {
+				@Override
+				public void run() {
+					try {
+
+						String ret = download(getUrl(dataFiles.get(0)));
+						if (ret.contains("GPSLogger")) {
+							countEvents += maxI;
+							File f = getFolder();
+							File f2 = new File(f, dataFiles.get(0));
+							dataFiles.remove(0);
+
+							try {
+								f2.renameTo(new File(f, "uploaded." + System.currentTimeMillis() + ".txt"));
+							} catch (Exception ex) {
+								log(ex.toString(), ex);
+							}
+
+							log("done  (" + dataFiles.size() + " files todo)");
+						} else {
+							log("not saved error = " + ret);
+						}
+					} catch (final Exception e) {
+						// log("error "+e.getMessage()+"\n", e);
+						String m = e.getMessage();
+						log("not saved " + (m.length() > 60 ? "" : m));
+					}
+
+					if (listE.size() > 0 || dataFiles.size() > 0) {
+						checkSave();
+					}
 				}
 
-				if (listE.size() > 0) {
-					checkSave();
-				}
+			}, 0, TimeUnit.SECONDS);
 
-			}
-		}, 0, TimeUnit.SECONDS);
+		} else if (listE.size() > 0) {
+
+			log("saving to drive " + listE.size() + " items\n");
+			pool.schedule(new Runnable() {
+				@Override
+				public void run() {
+					LinkedList<Evt> listE2 = new LinkedList<PerroMon.Evt>(listE);
+					listE.clear();
+					try {						
+						String ret = download(getData(listE2));
+						if (ret.contains("GPSLogger")) {
+							log(listE2.size() + " items uploaded");
+							countEvents += listE2.size();
+							lastSave = lastData;
+						} else {
+							log("not saved error = " + ret);
+						}
+					} catch (final Exception e) {
+						// log("error "+e.getMessage()+"\n", e);
+						String m = e.getMessage();
+						log("not saved " + (m.length() > 60 ? "" : m));
+						listE.addAll(0, listE2);
+					}
+
+					if (listE.size() > 0 || dataFiles.size() > 0) {
+						checkSave();
+					}else{
+						File f = getFolder();
+						File f2 = new File(f, "data.last.txt");						
+						try {
+							if (f2.exists() && !f2.delete()){
+								log("can't delete "+f2);								
+							}
+						} catch (Exception ex) {
+							log(ex.toString(), ex);
+						}
+					}
+				}
+			}, 0, TimeUnit.SECONDS);
+		}
+	}
+ 
+
+	private URL getUrl(String string) throws IOException {
+		File f = getFolder();
+		FileInputStream fis = null;
+		File f2 = new File(f, string);
+		byte[] buffer = new byte[(int) f2.length()];
+		BufferedInputStream br = new BufferedInputStream(new FileInputStream(f2));
+		br.read(buffer);
+		return new URL(new String(buffer));
 
 	}
-
-	private void saveLoc(LinkedList<Evt> listE2) throws IOException {
+	private URL getData(LinkedList<Evt> listE2) throws IOException {
 
 //		KeyStore keyStore = new KeyStore()
 //		String algorithm = TrustManagerFactory.getDefaultAlgorithm();
@@ -865,7 +1029,8 @@ public class PerroMon extends Activity {
 //		context.init(null, tmf.getTrustManagers(), null);
 
 		StringBuilder sb = new StringBuilder();
-
+		DateFormat format = getFormat();
+		
 		sb.append("[");
 		for (Iterator<Evt> iterator = listE2.iterator(); iterator.hasNext();) {
 			Evt evt = (Evt) iterator.next();
@@ -916,9 +1081,28 @@ public class PerroMon extends Activity {
 //			startActivity(browserIntent);
 
 			 
-		download(url);
+		
+		
+		
+		return url;
+		
+	}
 
-		log(listE2.size()+" items saved to GDrive");
+	private File persist(String string, URL url) {
+		
+		File folder = getFolder();
+		
+		File f = new File(folder,"data."+string+".txt");
+		
+		try {
+			BufferedWriter buf = new BufferedWriter(new FileWriter(f));
+			buf.append(url.toExternalForm());
+			buf.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		return f;
 		
 	}
 
@@ -938,7 +1122,7 @@ public class PerroMon extends Activity {
 	    return false;
 	}
 	
-	private void download(URL url) throws IOException {
+	private String download(URL url) throws IOException {
 		
 		HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 	
@@ -991,10 +1175,11 @@ public class PerroMon extends Activity {
 		}
 		conn.disconnect();
 
+		return x.toString();
 		
 	}
 
-	private void recordLoc()  {
+	private void recordLoc() {
 
 		
 		if (switchRecordOn.isChecked()){
@@ -1049,6 +1234,8 @@ public class PerroMon extends Activity {
 				evt.date = new Date();
 				lastData = new Date().getTime();
 				listE.add(evt);
+				
+				persist();
 				trySave();
 
 			}else{
@@ -1065,6 +1252,7 @@ public class PerroMon extends Activity {
 			
 			@Override
 			public void run() {
+				DateFormat format = getFormat();
 				String d = format.format(new Date());
 				String s = textView1.getText().toString();
 				if (s.length()>5000){
@@ -1128,6 +1316,7 @@ public class PerroMon extends Activity {
 
 	public static void appendLog(String text) {
 
+		DateFormat format = getFormat();
 		String d = format.format(new Date());
 		if (text.endsWith("\n")) {
 			text = d + " " + text;
@@ -1135,10 +1324,11 @@ public class PerroMon extends Activity {
 			text = d + " " + text + "\n";
 		}
 		
-		File root = Environment.getExternalStorageDirectory();		
-		File logFile = new File(root, "PeroMon.txt");
+		
+		File folder = getFolder();
+		File logFile = new File(folder, "PeroMon.txt");
 		if (logFile.length()>5*1000*1000){
-			File logFile2 = new File(root, "PeroMon.2.txt");
+			File logFile2 = new File(folder, "PeroMonBack.txt");
 			if (logFile2.exists()){
 				logFile2.delete();
 			}
@@ -1163,32 +1353,53 @@ public class PerroMon extends Activity {
 		}
 	}
  
+	private static File getFolder() {
+		File root = Environment.getExternalStorageDirectory();
+		File folder = new File(root,"PerroMon");
+		folder.mkdirs();
+		return folder;
+	}
+
 	@Override
 	public void onBackPressed() {
-//		
-//	    new AlertDialog.Builder(this)
-//	        .setIcon(android.R.drawable.ic_dialog_alert)
-//	        .setTitle("Closing Activity")
-//	        .setMessage("Are you sure you want to close this activity?")
-//	        .setPositiveButton("Yes", new DialogInterface.OnClickListener(){
-//	        @Override
-//	        public void onClick(DialogInterface dialog, int which) {
-//	        	
-//	        	locationManager.removeGpsStatusListener(gpsStatList);
-//	        	if (locReqGPSListener!=null)
-//	        		locationManager.removeUpdates(locReqGPSListener);
-//	        	if (locReqNETListener!=null)
-//	        		locationManager.removeUpdates(locReqNETListener);
-//	        	if (locationListener!=null)
-//	        		locationManager.removeUpdates(locationListener);        	
-//	        	
-//	            finish();   
-//	            
-//	        }
-//
-//	    })
-//	    .setNegativeButton("No", null)
-//	    .show();
+		
+		
+		if (!switchRecordOn.isChecked()){
+
+
+
+		    new AlertDialog.Builder(this)
+		        .setIcon(android.R.drawable.ic_dialog_alert)
+		        .setTitle("Closing Activity")
+		        .setMessage("Are you sure you want to close this activity?")
+		        .setPositiveButton("Yes", new DialogInterface.OnClickListener(){
+		        @Override
+		        public void onClick(DialogInterface dialog, int which) {
+		        	
+		        	locationManager.removeGpsStatusListener(gpsStatList);
+		        	if (locReqGPSListener!=null)
+		        		locationManager.removeUpdates(locReqGPSListener);
+		        	if (locReqNETListener!=null)
+		        		locationManager.removeUpdates(locReqNETListener);
+		        	if (locationListener!=null)
+		        		locationManager.removeUpdates(locationListener);        	
+
+
+					Intent intent = new Intent(PerroMon.this, PlayerService.class);
+		        	if (switchServiceOn.isChecked()){
+		        		stopService(intent);
+		        	}
+
+		            finish();   
+		            
+		        }
+
+		    })
+		    .setNegativeButton("No", null)
+		    .show();
+		    
+		}
+		
 	}
 	
 	
